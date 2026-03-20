@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import app from './app';
-import { connectDB } from './config/database';
+import { connectDatabase } from './config/database';
 import { connectRedis } from './config/redis';
 import { logger } from './utils/logger';
 
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3001;
 async function startServer() {
   try {
     // Connect to MongoDB
-    await connectDB();
+    await connectDatabase();
     logger.info('✅ MongoDB conectado');
 
     // Connect to Redis (optional)

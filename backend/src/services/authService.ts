@@ -138,10 +138,14 @@ class AuthService {
       throw new Error('Email ou senha inválidos');
     }
 
-    // Generate tokens
+    // Generate tokens (use _id from populated org, not the full object)
+    const orgId = typeof user.organizationId === 'object' && user.organizationId._id
+      ? user.organizationId._id.toString()
+      : user.organizationId.toString();
+
     const tokens = this.generateTokens(
       user._id.toString(),
-      user.organizationId.toString(),
+      orgId,
       user.role
     );
 

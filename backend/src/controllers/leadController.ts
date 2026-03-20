@@ -288,4 +288,119 @@ export const leadController = {
       lead,
     });
   }),
+
+  // GET /api/leads/export
+  exportLeads: asyncHandler(async (req: Request, res: Response) => {
+    const leads = await Lead.find({ organizationId: req.organizationId });
+    
+    const csv = [
+      ['Nome', 'Email', 'Telefone', 'Empresa', 'Status', 'Score'].join(','),
+      ...leads.map(lead => 
+        [lead.name, lead.email, lead.phone, lead.company, lead.status, lead.score].join(',')
+      )
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+    res.send(csv);
+  }),
+
+  // PUT /api/leads/:id/stage
+  moveStage: asyncHandler(async (req: Request, res: Response) => {
+    const { stageId } = req.body;
+
+    const lead = await Lead.findOneAndUpdate(
+      { _id: req.params.id, organizationId: req.organizationId },
+      { 
+        stageId,
+        $push: {
+          activities: {
+            type: 'stage_changed',
+            description: 'Etapa do pipeline alterada',
+            userId: req.user!._id,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead não encontrado' });
+      return;
+    }
+
+    res.json({ lead });
+  }),
+
+  // PUT /api/leads/:id/assign
+  assignLead: asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.body;
+
+    const lead = await Lead.findOneAndUpdate(
+      { _id: req.params.id, organizationId: req.organizationId },
+      { 
+        assignedTo: userId,
+        $push: {
+          activities: {
+            type: 'assigned',
+            description: 'Lead atribuído a um responsável',
+            userId: req.user!._id,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    ).populate('assignedTo', 'name email avatar');
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead não encontrado' });
+      return;
+    }
+
+    res.json({ lead });
+  }),
+
+  // POST /api/leads/:id/notes
+  addNote: asyncHandler(async (req: Request, res: Response) => {
+    const { note } = req.body;
+
+    const lead = await Lead.findOneAndUpdate(
+      { _id: req.params.id, organizationId: req.organizationId },
+      {
+        $push: {
+          notes: note,
+          activities: {
+            type: 'note_added',
+            description: 'Nota adicionada',
+            userId: req.user!._id,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead não encontrado' });
+      return;
+    }
+
+    res.json({ lead });
+  }),
+
+  // GET /api/leads/:id/activities
+  getActivities: asyncHandler(async (req: Request, res: Response) => {
+    const lead = await Lead.findOne({
+      _id: req.params.id,
+      organizationId: req.organizationId,
+    }).populate('activities.userId', 'name email avatar');
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead não encontrado' });
+      return;
+    }
+
+    res.json({ activities: lead.activities });
+  }),
 };

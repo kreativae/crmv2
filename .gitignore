@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.env.production
+*.log
+.npm-cache
+.DS_Store
+testConnection.js
+playground-*.mongodb.js

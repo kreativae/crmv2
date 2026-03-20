@@ -5,7 +5,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import { errorHandler } from './middleware/errorHandler';
-import { rateLimiter } from './middleware/rateLimit';
+import { apiRateLimiter } from './middleware/rateLimit';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -44,7 +44,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Rate limiting
-app.use(rateLimiter);
+app.use(apiRateLimiter);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -21,13 +21,13 @@ router.put('/:id', validate(updateLeadSchema), leadController.update);
 router.delete('/:id', leadController.delete);
 
 // Bulk operations
-router.post('/bulk', authorize('admin', 'manager'), leadController.bulkCreate);
-router.put('/bulk', authorize('admin', 'manager'), leadController.bulkUpdate);
-router.delete('/bulk', authorize('admin', 'manager'), leadController.bulkDelete);
+router.post('/bulk', authorize('admin', 'manager'), leadController.bulkAction);
+router.put('/bulk', authorize('admin', 'manager'), leadController.bulkAction);
+router.delete('/bulk', authorize('admin', 'manager'), leadController.bulkAction);
 
 // Lead actions
 router.post('/:id/move', leadController.moveStage);
-router.post('/:id/assign', leadController.assign);
+router.post('/:id/assign', leadController.assignLead);
 router.post('/:id/score', leadController.updateScore);
 router.post('/:id/convert', leadController.convertToClient);
 router.post('/:id/notes', leadController.addNote);
