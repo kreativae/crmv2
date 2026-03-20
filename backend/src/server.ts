@@ -21,7 +21,7 @@ async function startServer() {
     }
 
     // Start server
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       logger.info(`🚀 Servidor rodando na porta ${PORT}`);
       logger.info(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
     });
