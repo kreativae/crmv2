@@ -26,8 +26,19 @@ const app = express();
 
 // Security
 app.use(helmet());
+
+// CORS — allow configured FRONTEND_URL plus localhost origins in development
+const allowedOrigins = Array.from(new Set([env.FRONTEND_URL, ...env.FRONTEND_URLS]));
+if (env.isDev) {
+  allowedOrigins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
+}
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],

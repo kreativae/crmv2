@@ -5,6 +5,9 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[context.production.environment]
+  VITE_API_URL = "https://crmv2-7472.onrender.com/api"
+
 # Security Headers
 [[headers]]
   for = "/*"
