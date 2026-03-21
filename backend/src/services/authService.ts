@@ -6,6 +6,7 @@ import { Organization } from '../models/Organization.js';
 import { generateSlug, generateToken } from '../utils/helpers.js';
 import { emailService } from './emailService.js';
 import { logger } from '../utils/logger.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 // In-memory login attempt tracking (for brute-force protection)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil: number }>();
@@ -76,7 +77,7 @@ class AuthService {
     // Check if email already exists
     const existingUser = await User.findOne({ email: data.email.toLowerCase() });
     if (existingUser) {
-      throw new Error('Email já cadastrado');
+      throw new AppError('Email já cadastrado', 409);
     }
 
     // Create organization
@@ -134,7 +135,7 @@ class AuthService {
       const now = Date.now();
       if (attempts.lockedUntil > now) {
         const remainingMinutes = Math.ceil((attempts.lockedUntil - now) / 60000);
-        throw new Error(`Conta temporariamente bloqueada. Tente novamente em ${remainingMinutes} minutos.`);
+        throw new AppError(`Conta temporariamente bloqueada. Tente novamente em ${remainingMinutes} minutos.`, 429);
       }
       // Reset if window expired
       if (now - attempts.lastAttempt > ATTEMPT_WINDOW_MS) {
@@ -149,18 +150,18 @@ class AuthService {
 
     if (!user) {
       this.recordFailedAttempt(emailKey);
-      throw new Error('Email ou senha inválidos');
+      throw new AppError('Email ou senha inválidos', 401);
     }
 
     if (user.status !== 'active') {
-      throw new Error('Usuário inativo');
+      throw new AppError('Usuário inativo', 403);
     }
 
     // Check password
     const isValidPassword = await user.comparePassword(data.password);
     if (!isValidPassword) {
       this.recordFailedAttempt(emailKey);
-      throw new Error('Email ou senha inválidos');
+      throw new AppError('Email ou senha inválidos', 401);
     }
 
     // Login successful — clear attempts
@@ -193,13 +194,13 @@ class AuthService {
   async refreshToken(refreshToken: string): Promise<TokenPair> {
     const decoded = this.verifyRefreshToken(refreshToken);
     if (!decoded) {
-      throw new Error('Refresh token inválido');
+      throw new AppError('Refresh token inválido', 401);
     }
 
     // Find user and check if refresh token is valid
     const user = await User.findById(decoded.userId).select('+refreshTokens');
     if (!user || !user.refreshTokens.includes(refreshToken)) {
-      throw new Error('Refresh token inválido');
+      throw new AppError('Refresh token inválido', 401);
     }
 
     // Generate new tokens
@@ -266,7 +267,7 @@ class AuthService {
     });
 
     if (!user) {
-      throw new Error('Token inválido ou expirado');
+      throw new AppError('Token inválido ou expirado', 400);
     }
 
     // Update password and clear reset token
@@ -288,12 +289,12 @@ class AuthService {
   ): Promise<void> {
     const user = await User.findById(userId).select('+password');
     if (!user) {
-      throw new Error('Usuário não encontrado');
+      throw new AppError('Usuário não encontrado', 404);
     }
 
     const isValidPassword = await user.comparePassword(currentPassword);
     if (!isValidPassword) {
-      throw new Error('Senha atual incorreta');
+      throw new AppError('Senha atual incorreta', 400);
     }
 
     user.password = newPassword;
