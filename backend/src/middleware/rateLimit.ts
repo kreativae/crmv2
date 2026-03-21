@@ -8,12 +8,14 @@ export const createRateLimiter = (options: {
   max?: number;
   message?: string;
   keyGenerator?: (req: Request) => string;
+  skipSuccessfulRequests?: boolean;
 }) => {
   const {
     windowMs = 60 * 1000, // 1 minute
     max = 100, // requests per window
     message = 'Muitas requisições, tente novamente mais tarde',
     keyGenerator = (req: Request) => req.ip || 'unknown',
+    skipSuccessfulRequests = false,
   } = options;
 
   return rateLimit({
@@ -21,6 +23,7 @@ export const createRateLimiter = (options: {
     max,
     message: { error: message },
     keyGenerator,
+    skipSuccessfulRequests,
     standardHeaders: true,
     legacyHeaders: false,
     handler: (_req: Request, res: Response) => {
@@ -30,10 +33,21 @@ export const createRateLimiter = (options: {
 };
 
 // Specific rate limiters
-export const authRateLimiter = createRateLimiter({
+export const authLoginRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 login attempts per 15 min
   message: 'Muitas tentativas de login, tente novamente em 15 minutos',
+  keyGenerator: (req: Request) => {
+    const ip = req.ip || 'unknown';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    return email ? `${ip}:${email}` : ip;
+  },
+});
+
+export const authRefreshRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // allow frequent silent refresh without blocking login
+  message: 'Muitas tentativas de renovação de sessão, aguarde 1 minuto',
 });
 
 export const apiRateLimiter = createRateLimiter({
