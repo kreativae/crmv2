@@ -395,9 +395,17 @@ export function CRMPage() {
       setFormData({ ...emptyLead, pipelineId: selectedPipelineId });
       setFormErrors({});
       showToast('Lead criado com sucesso!');
-    } catch (err) {
-      logger.error('Erro ao criar lead:', err);
-      showToast('Erro ao criar lead.', 'error');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string; details?: Array<{ field: string; message: string }> } } };
+      const details = axiosErr?.response?.data?.details;
+      if (details?.length) {
+        const msg = details.map((d: { field: string; message: string }) => `${d.field}: ${d.message}`).join(', ');
+        logger.error('Erro ao criar lead - detalhes:', msg);
+        showToast(`Erro: ${msg}`, 'error');
+      } else {
+        logger.error('Erro ao criar lead:', err);
+        showToast('Erro ao criar lead.', 'error');
+      }
     }
   };
 

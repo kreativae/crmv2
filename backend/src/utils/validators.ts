@@ -53,14 +53,14 @@ export const changePasswordSchema = z.object({
 // Lead schemas
 export const createLeadSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  email: emailSchema.optional(),
-  phone: phoneSchema.optional(),
+  email: z.string().email('Invalid email format').optional().or(z.literal('').transform(() => undefined)),
+  phone: z.string().min(1).optional().or(z.literal('').transform(() => undefined)),
   company: z.string().optional(),
   source: z.string().optional(),
   pipelineId: objectIdSchema.optional(),
   stageId: z.string().optional(),
-  score: z.number().min(0).max(100).default(0),
-  value: z.number().min(0).default(0),
+  score: z.coerce.number().min(0).max(100).default(0),
+  value: z.coerce.number().min(0).default(0),
   tags: z.array(z.string()).default([]),
   notes: z.string().optional(),
   assignedTo: objectIdSchema.optional(),
