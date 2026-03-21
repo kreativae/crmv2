@@ -53,6 +53,27 @@ const emptyLead: Omit<Lead, '_id'> = {
   createdAt: new Date().toISOString().split('T')[0], lastActivity: 'Agora', notes: '',
 };
 
+const CRM_LEADS_BACKUP_KEY = 'nexcrm:crm:leads:backup';
+
+const readLeadsBackup = (): Lead[] => {
+  try {
+    const raw = localStorage.getItem(CRM_LEADS_BACKUP_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Lead[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLeadsBackup = (items: Lead[]) => {
+  try {
+    localStorage.setItem(CRM_LEADS_BACKUP_KEY, JSON.stringify(items));
+  } catch {
+    // Ignore storage quota/privacy mode errors.
+  }
+};
+
 export function CRMPage() {
   const { leads, selectedPipelineId, setSelectedPipelineId, addLead, updateLead, deleteLead, moveLeadToStage, addCalendarEvent, currentPage, settingsUsers, currentUser } = useStore();
 
@@ -161,16 +182,50 @@ export function CRMPage() {
         const response = await leadService.getAll();
         const serverLeads = response.data || [];
         const currentLeads = useStore.getState().leads;
+
+        if (serverLeads.length > 0) {
+          currentLeads.forEach(l => deleteLead(l._id));
+          serverLeads.forEach(l => addLead(l));
+          writeLeadsBackup(serverLeads);
+          return;
+        }
+
+        if (currentLeads.length > 0) {
+          writeLeadsBackup(currentLeads);
+          return;
+        }
+
+        const backupLeads = readLeadsBackup();
+        if (backupLeads.length > 0) {
+          backupLeads.forEach(l => addLead(l));
+          logger.warn('[CRM] API retornou 0 leads; restaurado backup local temporário.');
+          return;
+        }
+
         currentLeads.forEach(l => deleteLead(l._id));
-        serverLeads.forEach(l => addLead(l));
       } catch (err) {
         logger.error('Erro ao carregar leads:', err);
+
+        const currentLeads = useStore.getState().leads;
+        if (currentLeads.length === 0) {
+          const backupLeads = readLeadsBackup();
+          if (backupLeads.length > 0) {
+            backupLeads.forEach(l => addLead(l));
+            logger.warn('[CRM] Falha ao carregar API; restaurado backup local temporário.');
+          }
+        }
       } finally {
         setLoading(false);
       }
     };
     loadLeads();
   }, []);
+
+  useEffect(() => {
+    if (leads.length > 0) {
+      writeLeadsBackup(leads);
+    }
+  }, [leads]);
 
   // Reset state on page change and cleanup overlays
   useEffect(() => {
