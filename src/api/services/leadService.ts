@@ -81,7 +81,7 @@ export const leadService = {
 
   async getStats(): Promise<LeadStats> {
     const response = await api.get('/leads/stats');
-    return response.data.data;
+    return response.data;
   },
 
   async importCSV(file: File): Promise<{ imported: number; errors: string[] }> {
@@ -90,7 +90,7 @@ export const leadService = {
     const response = await api.post('/leads/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data.data;
+    return response.data;
   },
 
   async exportCSV(filters: LeadFilters = {}): Promise<Blob> {
