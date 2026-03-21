@@ -26,6 +26,13 @@ export interface IntegrationConfig {
   category: string;
   connectedAt?: string;
   config?: Record<string, string>;
+  metrics?: {
+    requestsMonth?: number;
+    successfulChecks?: number;
+    failedChecks?: number;
+    avgLatencyMs?: number;
+    lastCheckedAt?: string;
+  };
 }
 
 export interface AuditLog {

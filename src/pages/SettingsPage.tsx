@@ -818,6 +818,36 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
     scopes: 'email profile openid',
   });
 
+  const getDynamicMetrics = (integration: IntegrationConfig) => {
+    const metrics = integration.metrics;
+    const checksSuccess = metrics?.successfulChecks || 0;
+    const checksFail = metrics?.failedChecks || 0;
+    const totalChecks = checksSuccess + checksFail;
+    const uptime = totalChecks > 0 ? (checksSuccess / totalChecks) * 100 : null;
+
+    return {
+      requestsMonth: metrics?.requestsMonth ?? 0,
+      uptime,
+      avgLatencyMs: metrics?.avgLatencyMs ?? null,
+      lastCheckedAt: metrics?.lastCheckedAt,
+    };
+  };
+
+  const mergeMetrics = (
+    integration: IntegrationConfig,
+    patch: Partial<NonNullable<IntegrationConfig['metrics']>>
+  ): NonNullable<IntegrationConfig['metrics']> => {
+    const current = integration.metrics || {};
+    return {
+      requestsMonth: current.requestsMonth || 0,
+      successfulChecks: current.successfulChecks || 0,
+      failedChecks: current.failedChecks || 0,
+      avgLatencyMs: current.avgLatencyMs,
+      lastCheckedAt: current.lastCheckedAt,
+      ...patch,
+    };
+  };
+
   useEffect(() => {
     if (integrations.length === 0) {
       setIntegrations(DEFAULT_INTEGRATIONS);
@@ -876,10 +906,13 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
     }
     
     // Simulate saving
-    updateIntegration(configModal.name, { 
-      status: 'connected', 
+    updateIntegration(configModal.name, {
+      status: 'connected',
       connectedAt: new Date().toISOString(),
-      description: 'Configurado - OAuth ativo'
+      description: 'Configurado - OAuth ativo',
+      metrics: mergeMetrics(configModal, {
+        requestsMonth: (configModal.metrics?.requestsMonth || 0) + 1,
+      }),
     });
     
     setConfigModal(null);
@@ -887,12 +920,44 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
   };
 
   // Handle test connection
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
+    if (!configModal) return;
+
     setTesting(true);
-    setTimeout(() => {
+    const start = performance.now();
+    try {
+      // Real backend roundtrip to validate connectivity from this workspace/session.
+      await settingsService.getIntegrations();
+      const latency = Math.max(1, Math.round(performance.now() - start));
+      const current = configModal.metrics || {};
+      const previousChecks = current.successfulChecks || 0;
+      const previousAvg = current.avgLatencyMs || latency;
+      const nextAvg = Math.round((previousAvg * previousChecks + latency) / (previousChecks + 1));
+
+      const nextMetrics = mergeMetrics(configModal, {
+        successfulChecks: previousChecks + 1,
+        avgLatencyMs: nextAvg,
+        requestsMonth: (current.requestsMonth || 0) + 1,
+        lastCheckedAt: new Date().toISOString(),
+      });
+
+      updateIntegration(configModal.name, { metrics: nextMetrics });
+      setConfigModal({ ...configModal, metrics: nextMetrics });
+      showToast(`Conexão testada com sucesso! Latência: ${latency}ms.`, 'success');
+    } catch {
+      const current = configModal.metrics || {};
+      const nextMetrics = mergeMetrics(configModal, {
+        failedChecks: (current.failedChecks || 0) + 1,
+        requestsMonth: (current.requestsMonth || 0) + 1,
+        lastCheckedAt: new Date().toISOString(),
+      });
+
+      updateIntegration(configModal.name, { metrics: nextMetrics });
+      setConfigModal({ ...configModal, metrics: nextMetrics });
+      showToast('Falha no teste de conexão. Verifique credenciais e permissões.', 'error');
+    } finally {
       setTesting(false);
-      showToast('Conexão testada com sucesso! Credenciais válidas.', 'success');
-    }, 2000);
+    }
   };
 
   const categories = ['all', ...Array.from(new Set(integrationsData.map(i => i.category)))];
@@ -906,9 +971,17 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
   }, [catFilter, categories]);
 
   const handleConnect = (name: string) => {
+    const integration = integrationsData.find((i) => i.name === name);
     setConnecting(name);
     setTimeout(() => {
-      updateIntegration(name, { status: 'connected', connectedAt: new Date().toISOString(), description: 'Configurado' });
+      updateIntegration(name, {
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
+        description: 'Configurado',
+        metrics: mergeMetrics(integration || { name, status: 'disconnected', icon: 'plug', description: '', category: 'all' }, {
+          requestsMonth: ((integration?.metrics?.requestsMonth) || 0) + 1,
+        }),
+      });
       setConnecting(null);
       showToast(`${name} conectado com sucesso!`);
     }, 1500);
@@ -1250,21 +1323,26 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
                       </button>
                     </div>
 
-                    {/* Usage stats */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-3 text-center">
-                        <p className="text-lg font-bold text-blue-700">1.2k</p>
-                        <p className="text-[10px] text-blue-500 font-medium">Requisições/mês</p>
-                      </div>
-                      <div className="rounded-xl bg-green-50/50 border border-green-100 p-3 text-center">
-                        <p className="text-lg font-bold text-green-700">99.8%</p>
-                        <p className="text-[10px] text-green-500 font-medium">Uptime</p>
-                      </div>
-                      <div className="rounded-xl bg-amber-50/50 border border-amber-100 p-3 text-center">
-                        <p className="text-lg font-bold text-amber-700">42ms</p>
-                        <p className="text-[10px] text-amber-500 font-medium">Latência avg</p>
-                      </div>
-                    </div>
+                    {/* Dynamic integration stats */}
+                    {(() => {
+                      const stats = getDynamicMetrics(configModal);
+                      return (
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-3 text-center">
+                            <p className="text-lg font-bold text-blue-700">{stats.requestsMonth.toLocaleString('pt-BR')}</p>
+                            <p className="text-[10px] text-blue-500 font-medium">Requisições/mês</p>
+                          </div>
+                          <div className="rounded-xl bg-green-50/50 border border-green-100 p-3 text-center">
+                            <p className="text-lg font-bold text-green-700">{stats.uptime !== null ? `${stats.uptime.toFixed(1)}%` : 'N/D'}</p>
+                            <p className="text-[10px] text-green-500 font-medium">Uptime</p>
+                          </div>
+                          <div className="rounded-xl bg-amber-50/50 border border-amber-100 p-3 text-center">
+                            <p className="text-lg font-bold text-amber-700">{stats.avgLatencyMs !== null ? `${stats.avgLatencyMs}ms` : 'N/D'}</p>
+                            <p className="text-[10px] text-amber-500 font-medium">Latência avg</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>
