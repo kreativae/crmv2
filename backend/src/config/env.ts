@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import crypto from 'crypto';
 dotenv.config();
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -15,14 +14,18 @@ function requireEnv(name: string, fallback?: string): string {
   return fallback || '';
 }
 
-// Generate a random secret for development (different each restart)
+// In development, use a stable placeholder secret with a clear warning.
+// In production, the env var is required (throws if missing).
 function devSecret(name: string): string {
   const value = process.env[name];
   if (value && value.length > 0) return value as string;
   if (isProd) {
     throw new Error(`[FATAL] Missing required environment variable: ${name}. Never use default secrets in production.`);
   }
-  return crypto.randomBytes(64).toString('hex');
+  // Fixed dev-only fallback — sessions survive backend restarts in development.
+  // Set the env var in .env to use a custom value.
+  console.warn(`[DEV] ${name} not set — using insecure dev fallback. Set it in .env for stable tokens.`);
+  return `dev-only-insecure-${name.toLowerCase()}-change-in-production`;
 }
 
 export const env = {

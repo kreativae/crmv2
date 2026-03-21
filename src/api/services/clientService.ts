@@ -26,17 +26,17 @@ export const clientService = {
 
   async getById(id: string): Promise<Client> {
     const response = await api.get(`/clients/${id}`);
-    return response.data.data;
+    return response.data;
   },
 
   async create(client: Partial<Client>): Promise<Client> {
     const response = await api.post('/clients', client);
-    return response.data.data;
+    return response.data;
   },
 
   async update(id: string, updates: Partial<Client>): Promise<Client> {
     const response = await api.put(`/clients/${id}`, updates);
-    return response.data.data;
+    return response.data;
   },
 
   async delete(id: string): Promise<void> {
@@ -79,8 +79,8 @@ export const clientService = {
     avgValue: number;
     byIndustry: Record<string, number>;
   }> {
-    const response = await api.get('/clients/stats');
-    return response.data.data;
+    const response = await api.get('/clients/stats/summary');
+    return response.data;
   },
 
   async exportCSV(filters: ClientFilters = {}): Promise<Blob> {

@@ -199,9 +199,10 @@ export function ClientsPage() {
         setShowCreateModal(false);
       }
       resetForm();
-    } catch (err) {
+    } catch (err: any) {
       logger.error('Erro ao salvar cliente:', err);
-      showToast('error', 'Erro ao salvar cliente. Tente novamente.');
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Tente novamente.';
+      showToast('error', `Erro ao salvar cliente: ${msg}`);
     } finally {
       setSaving(false);
     }
