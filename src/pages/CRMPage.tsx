@@ -95,6 +95,7 @@ export function CRMPage() {
 
   // Form
   const [formData, setFormData] = useState<Omit<Lead, '_id'>>(emptyLead);
+  const [leadValueInput, setLeadValueInput] = useState<string>(String(emptyLead.value));
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Quick action dropdown
@@ -411,6 +412,17 @@ export function CRMPage() {
     return payload;
   };
 
+  const handleLeadValueChange = (rawValue: string) => {
+    setLeadValueInput(rawValue);
+    if (rawValue.trim() === '') return;
+
+    const normalized = rawValue.replace(',', '.');
+    const parsed = Number(normalized);
+    if (Number.isNaN(parsed)) return;
+
+    setFormData({ ...formData, value: Math.max(0, parsed) });
+  };
+
   const handleCreateLead = async () => {
     if (!validateForm()) return;
     try {
@@ -419,6 +431,7 @@ export function CRMPage() {
       addLead(created);
       setShowNewLead(false);
       setFormData({ ...emptyLead, pipelineId: selectedPipelineId });
+      setLeadValueInput(String(emptyLead.value));
       setFormErrors({});
       showToast('Lead criado com sucesso!');
     } catch (err: unknown) {
@@ -465,11 +478,13 @@ export function CRMPage() {
 
   const openEditModal = (lead: Lead) => {
     setFormData({ ...lead });
+    setLeadValueInput(String(lead.value ?? 0));
     setEditingLead(lead._id);
   };
 
   const openNewLeadModal = () => {
     setFormData({ ...emptyLead, pipelineId: selectedPipelineId, stageId: pipeline.stages[0]._id });
+    setLeadValueInput(String(emptyLead.value));
     setFormErrors({});
     setShowNewLead(true);
   };
@@ -913,12 +928,18 @@ export function CRMPage() {
               <div className="relative">
                 <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
-                  type="number"
-                  value={formData.value}
-                  onChange={e => setFormData({ ...formData, value: Number(e.target.value) })}
+                  type="text"
+                  inputMode="decimal"
+                  value={leadValueInput}
+                  onChange={e => handleLeadValueChange(e.target.value)}
+                  onBlur={() => {
+                    if (leadValueInput.trim() === '') {
+                      setLeadValueInput('0');
+                      setFormData({ ...formData, value: 0 });
+                    }
+                  }}
                   className="input-modern w-full rounded-xl pl-11 pr-4 py-3 text-sm"
                   placeholder="0"
-                  min={0}
                 />
               </div>
             </div>
@@ -2459,6 +2480,7 @@ export function CRMPage() {
                       <button
                         onClick={() => {
                           setFormData({ ...emptyLead, pipelineId: selectedPipelineId, stageId: stage._id });
+                          setLeadValueInput(String(emptyLead.value));
                           setFormErrors({});
                           setShowNewLead(true);
                         }}
