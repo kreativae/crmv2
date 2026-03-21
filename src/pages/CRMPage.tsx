@@ -354,13 +354,23 @@ export function CRMPage() {
 
   const handleDragStart = (leadId: string) => setDraggedLead(leadId);
   const handleDragOver = (e: React.DragEvent, stageId: string) => { e.preventDefault(); setDragOverStage(stageId); };
-  const handleDrop = (stageId: string) => {
-    if (draggedLead) {
-      moveLeadToStage(draggedLead, stageId);
-      showToast('Lead movido com sucesso!');
+  const handleDrop = async (stageId: string) => {
+    if (!draggedLead) {
+      setDragOverStage(null);
+      return;
     }
-    setDraggedLead(null);
-    setDragOverStage(null);
+
+    try {
+      const updatedLead = await leadService.moveToStage(draggedLead, stageId);
+      updateLead(draggedLead, updatedLead);
+      showToast('Lead movido com sucesso!');
+    } catch (err) {
+      logger.error('Erro ao mover lead de etapa:', err);
+      showToast('Erro ao mover lead. Tente novamente.', 'error');
+    } finally {
+      setDraggedLead(null);
+      setDragOverStage(null);
+    }
   };
 
   const getScoreGradient = (score: number) => {

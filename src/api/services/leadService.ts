@@ -70,12 +70,12 @@ export const leadService = {
   },
 
   async moveToStage(id: string, stageId: string): Promise<Lead> {
-    const response = await api.put(`/leads/${id}/stage`, { stageId });
+    const response = await api.post(`/leads/${id}/move`, { stageId });
     return response.data.lead;
   },
 
   async updateScore(id: string, score: number): Promise<Lead> {
-    const response = await api.put(`/leads/${id}/score`, { score });
+    const response = await api.post(`/leads/${id}/score`, { score });
     return response.data.lead;
   },
 
