@@ -135,7 +135,6 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-    }, 1500);
   };
 
   const strength = getPasswordStrength(activeTab === 'register' ? registerPass : password);
