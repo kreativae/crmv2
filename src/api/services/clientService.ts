@@ -12,6 +12,15 @@ export interface ClientFilters {
   tags?: string[];
 }
 
+// Strip frontend-only fields that don't exist in the backend model
+function toApiPayload(client: Partial<Client>): Record<string, unknown> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { leadsCount, conversationsCount, lastInteraction, notes, ...rest } = client as any;
+  // notes in backend is a plain string; omit array-form notes from payload
+  // (notes are managed via the /notes endpoint)
+  return rest;
+}
+
 export const clientService = {
   async getAll(filters: ClientFilters = {}): Promise<{ data: Client[]; pagination: { total: number; pages: number } }> {
     const params = new URLSearchParams();
@@ -30,12 +39,12 @@ export const clientService = {
   },
 
   async create(client: Partial<Client>): Promise<Client> {
-    const response = await api.post('/clients', client);
+    const response = await api.post('/clients', toApiPayload(client));
     return response.data;
   },
 
   async update(id: string, updates: Partial<Client>): Promise<Client> {
-    const response = await api.put(`/clients/${id}`, updates);
+    const response = await api.put(`/clients/${id}`, toApiPayload(updates));
     return response.data;
   },
 
