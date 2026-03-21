@@ -27,6 +27,12 @@ export const setAccessToken = (token: string | null) => {
 
 export const getAccessToken = () => accessToken;
 
+const clearPersistedAuthSession = () => {
+  setAccessToken(null);
+  localStorage.removeItem('nexcrm:accessToken');
+  localStorage.removeItem('nexcrm:user');
+};
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value?: unknown) => void;
@@ -60,9 +66,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const requestUrl = originalRequest?.url || '';
+    const isAuthEndpoint = /\/auth\/(login|register|refresh|logout|forgot-password|reset-password)/.test(requestUrl);
 
     // Handle 401 - token expired
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -97,8 +105,10 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError as Error, null);
-        setAccessToken(null);
-        window.location.href = '/';
+        clearPersistedAuthSession();
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

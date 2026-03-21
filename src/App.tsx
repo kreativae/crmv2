@@ -59,8 +59,12 @@ export function App() {
                 login(me.user.email, '', me.user);
               }
             })
-            .catch(() => {
-              // Keep local session; API interceptor will handle true expiration on requests.
+            .catch((err: unknown) => {
+              const status = (err as { response?: { status?: number } })?.response?.status;
+              if (status === 401) {
+                // Persisted token became invalid; clear session to avoid refresh loops.
+                logout();
+              }
             });
           return;
         }
