@@ -136,6 +136,20 @@ export function CRMPage() {
   const [_loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isValidObjectId = (id?: string) => !!id && /^[a-f\d]{24}$/i.test(id);
+
+  const getLeadPipelineId = (lead: Lead): string | undefined => {
+    const rawPipelineId = lead.pipelineId as unknown;
+    if (typeof rawPipelineId === 'string') return rawPipelineId;
+    if (rawPipelineId && typeof rawPipelineId === 'object' && '_id' in rawPipelineId) {
+      const nestedId = (rawPipelineId as { _id?: unknown })._id;
+      return typeof nestedId === 'string' ? nestedId : undefined;
+    }
+    return undefined;
+  };
+
+  const shouldFilterByPipeline = isValidObjectId(selectedPipelineId);
+
   const pipeline = localPipelines.find(p => p._id === selectedPipelineId) || localPipelines[0];
 
   // Load leads from backend on mount
@@ -194,7 +208,9 @@ export function CRMPage() {
 
     // Simulate AI analysis (in production, this would call a real AI API)
     setTimeout(() => {
-      const pipelineLeadsData = leads.filter(l => l.pipelineId === selectedPipelineId);
+      const pipelineLeadsData = shouldFilterByPipeline
+        ? leads.filter(l => getLeadPipelineId(l) === selectedPipelineId)
+        : leads;
       
       // Calculate stats
       const avgScore = pipelineLeadsData.length > 0 
@@ -284,7 +300,7 @@ export function CRMPage() {
       });
       setAiAnalyzing(false);
     }, 2000);
-  }, [leads, selectedPipelineId]);
+  }, [leads, selectedPipelineId, shouldFilterByPipeline]);
 
   // All tags from all leads
   const allTags = useMemo(() => {
@@ -295,7 +311,9 @@ export function CRMPage() {
 
   // Filtered and sorted leads
   const pipelineLeads = useMemo(() => {
-    let filtered = leads.filter(l => l.pipelineId === selectedPipelineId);
+    let filtered = shouldFilterByPipeline
+      ? leads.filter(l => getLeadPipelineId(l) === selectedPipelineId)
+      : [...leads];
 
     if (searchFilter) {
       const q = searchFilter.toLowerCase();
@@ -322,7 +340,7 @@ export function CRMPage() {
     });
 
     return filtered;
-  }, [leads, selectedPipelineId, searchFilter, filterSource, filterStatus, filterAssigned, filterScoreMin, filterScoreMax, filterTag, sortField, sortDir]);
+  }, [leads, selectedPipelineId, shouldFilterByPipeline, searchFilter, filterSource, filterStatus, filterAssigned, filterScoreMin, filterScoreMax, filterTag, sortField, sortDir]);
 
   const activeFiltersCount = [filterSource !== 'all', filterStatus !== 'all', filterAssigned !== 'all', filterScoreMin > 0, filterScoreMax < 100, filterTag !== ''].filter(Boolean).length;
 
@@ -364,8 +382,6 @@ export function CRMPage() {
   };
 
   // CRUD handlers
-  const isValidObjectId = (id?: string) => !!id && /^[a-f\d]{24}$/i.test(id);
-
   const buildLeadPayload = (data: Omit<Lead, '_id'>) => {
     const payload: Record<string, unknown> = {
       name: data.name,
