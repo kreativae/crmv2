@@ -1,38 +1,28 @@
 import { useState } from 'react';
-import { chartData, dashboardStats } from '../data/mockData';
+
 import { cn } from '../utils/cn';
 import { motion } from 'framer-motion';
 import { TrendingUp, Clock, DollarSign, Target, Download, RefreshCw, Users, BarChart3 } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
 
+const dashboardStats = {
+  totalRevenue: 0, revenueGrowth: 0, totalLeads: 0, leadsGrowth: 0,
+  conversionRate: 0, conversionGrowth: 0, activeDeals: 0, dealsGrowth: 0,
+  avgCloseTime: 0, closeTimeChange: 0, openTickets: 0, ticketsChange: 0,
+};
+const chartData = {
+  leadsBySource: [] as { source: string; count: number }[],
+  conversionFunnel: [{ stage: '—', value: 0 }],
+  performanceBySeller: [] as { name: string; deals: number; revenue: number; conversion: number }[],
+};
+
 const COLORS = ['#6366f1', '#8b5cf6', '#f59e0b', '#22c55e', '#3b82f6', '#ef4444'];
 
-const channelPerformance = [
-  { channel: 'WhatsApp', leads: 45, conversions: 18, revenue: 180000 },
-  { channel: 'Instagram', leads: 32, conversions: 10, revenue: 95000 },
-  { channel: 'Facebook', leads: 28, conversions: 8, revenue: 72000 },
-  { channel: 'Email', leads: 22, conversions: 12, revenue: 110000 },
-  { channel: 'Website', leads: 18, conversions: 5, revenue: 45000 },
-  { channel: 'Telegram', leads: 11, conversions: 3, revenue: 28000 },
-];
+const channelPerformance = [] as { channel: string; leads: number; conversions: number; revenue: number }[];
 
-const radarData = [
-  { metric: 'Leads', value: 85 },
-  { metric: 'Conversão', value: 72 },
-  { metric: 'Receita', value: 90 },
-  { metric: 'Retenção', value: 68 },
-  { metric: 'NPS', value: 82 },
-  { metric: 'Velocidade', value: 75 },
-];
+const radarData = [] as { metric: string; value: number }[];
 
-const monthlyConversions = [
-  { month: 'Jul', rate: 24 },
-  { month: 'Ago', rate: 27 },
-  { month: 'Set', rate: 25 },
-  { month: 'Out', rate: 30 },
-  { month: 'Nov', rate: 28 },
-  { month: 'Dez', rate: 32 },
-];
+const monthlyConversions = [] as { month: string; rate: number }[];
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };

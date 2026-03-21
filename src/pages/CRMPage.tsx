@@ -1,6 +1,20 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '../store';
-import { mockPipelines, mockUsers } from '../data/mockData';
+// Default pipelines (empty until loaded from API)
+const defaultPipelines = [
+  {
+    _id: 'pip_1',
+    organizationId: '',
+    name: 'Pipeline Principal',
+    stages: [
+      { _id: 's1', name: 'Novo', color: '#6366f1', order: 0 },
+      { _id: 's2', name: 'Contato', color: '#8b5cf6', order: 1 },
+      { _id: 's3', name: 'Proposta', color: '#f59e0b', order: 2 },
+      { _id: 's4', name: 'Negociação', color: '#f97316', order: 3 },
+      { _id: 's5', name: 'Fechamento', color: '#22c55e', order: 4 },
+    ],
+  },
+];
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { forceCleanup } from '../utils/fixClickBlock';
@@ -38,7 +52,7 @@ const emptyLead: Omit<Lead, '_id'> = {
 };
 
 export function CRMPage() {
-  const { leads, selectedPipelineId, setSelectedPipelineId, addLead, updateLead, deleteLead, moveLeadToStage, addCalendarEvent, currentPage } = useStore();
+  const { leads, selectedPipelineId, setSelectedPipelineId, addLead, updateLead, deleteLead, moveLeadToStage, addCalendarEvent, currentPage, settingsUsers } = useStore();
 
   // View state
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -115,7 +129,7 @@ export function CRMPage() {
   } | null>(null);
 
   // Local pipelines state (so we can add/edit/delete stages)
-  const [localPipelines, setLocalPipelines] = useState(mockPipelines);
+  const [localPipelines, setLocalPipelines] = useState(defaultPipelines);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -770,7 +784,7 @@ export function CRMPage() {
                   onChange={e => setFormData({ ...formData, assignedTo: e.target.value })}
                   className="input-modern w-full appearance-none rounded-xl px-4 py-3 text-sm pr-10"
                 >
-                  {mockUsers.filter(u => u.role === 'sales' || u.role === 'admin').map(u => (
+                  {settingsUsers.filter(u => u.role === 'sales' || u.role === 'admin' || u.role === 'owner').map(u => (
                     <option key={u._id} value={u._id}>{u.name}</option>
                   ))}
                 </select>
@@ -1026,7 +1040,7 @@ export function CRMPage() {
                 className="input-modern w-full appearance-none rounded-xl px-4 py-3 text-sm pr-10"
               >
                 <option value="all">Todos</option>
-                {mockUsers.filter(u => ['sales', 'admin'].includes(u.role)).map(u => (
+                {settingsUsers.filter(u => ['sales', 'admin', 'owner'].includes(u.role)).map(u => (
                   <option key={u._id} value={u._id}>{u.name}</option>
                 ))}
               </select>
@@ -1471,7 +1485,7 @@ export function CRMPage() {
   const renderDetailPanel = () => {
     if (!leadDetail) return null;
     const stage = pipeline.stages.find(s => s._id === leadDetail.stageId);
-    const assignedUser = mockUsers.find(u => u._id === leadDetail.assignedTo);
+    const assignedUser = settingsUsers.find(u => u._id === leadDetail.assignedTo);
     const notes = leadNotes[leadDetail._id] || [];
     const timeline = getTimeline(leadDetail);
 
@@ -2077,7 +2091,7 @@ export function CRMPage() {
               )}
               {filterAssigned !== 'all' && (
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-brand-200 px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-sm">
-                  {mockUsers.find(u => u._id === filterAssigned)?.name}
+                  {settingsUsers.find(u => u._id === filterAssigned)?.name}
                   <button onClick={() => setFilterAssigned('all')} className="hover:text-brand-900"><X className="h-3 w-3" /></button>
                 </span>
               )}
@@ -2097,7 +2111,7 @@ export function CRMPage() {
 
       {/* Pipeline Tabs */}
       <div className="flex gap-1 border-b border-gray-200/60 bg-white/80 backdrop-blur-xl px-4 lg:px-6 overflow-x-auto">
-        {mockPipelines.map((p) => {
+        {localPipelines.map((p) => {
           const count = leads.filter(l => l.pipelineId === p._id).length;
           return (
             <button
@@ -2405,7 +2419,7 @@ export function CRMPage() {
                   <tbody>
                     {pipelineLeads.map((lead, i) => {
                       const stage = pipeline.stages.find(s => s._id === lead.stageId);
-                      const user = mockUsers.find(u => u._id === lead.assignedTo);
+                      const user = settingsUsers.find(u => u._id === lead.assignedTo);
                       return (
                         <motion.tr
                           key={lead._id}

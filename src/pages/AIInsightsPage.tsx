@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
-import { mockLeads } from '../data/mockData';
+
 import { useStore } from '../store';
 import {
   Brain, Sparkles, TrendingUp, MessageSquare, Target,
@@ -453,7 +453,7 @@ function PredictionDetailModal({ pred, onClose, onAction }: { pred: PredictionIt
 
 /* ────── Main Page ────── */
 export function AIInsightsPage() {
-  const { setCurrentPage } = useStore();
+  const { setCurrentPage, leads } = useStore();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showChat, setShowChat] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
@@ -1147,7 +1147,7 @@ export function AIInsightsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {mockLeads.slice(0, 6).map((lead, i) => {
+                        {leads.slice(0, 6).map((lead, i) => {
                           const isApplied = appliedLeads.has(lead._id);
                           return (
                             <motion.tr key={lead._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 + i * 0.04 }}

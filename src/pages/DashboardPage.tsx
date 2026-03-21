@@ -3,7 +3,20 @@ import { useStore } from '../store';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Users, DollarSign, Target, Clock, Ticket, ArrowUpRight, ArrowRight, Eye, MessageSquare, Zap, CalendarDays, Plus, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { dashboardStats, chartData, mockLeads, mockDeals } from '../data/mockData';
+// Dashboard uses store data (real API)
+const emptyStats = {
+  totalRevenue: 0, revenueGrowth: 0, totalLeads: 0, leadsGrowth: 0,
+  conversionRate: 0, conversionGrowth: 0, activeDeals: 0, dealsGrowth: 0,
+  avgCloseTime: 0, closeTimeChange: 0, openTickets: 0, ticketsChange: 0,
+};
+const emptyChartData = {
+  revenueByMonth: [] as { month: string; value: number }[],
+  leadsBySource: [] as { source: string; count: number }[],
+  conversionFunnel: [] as { stage: string; value: number }[],
+  performanceBySeller: [] as { name: string; deals: number; revenue: number; conversion: number }[],
+};
+const dashboardStats = emptyStats;
+const chartData = emptyChartData;
 import { cn } from '../utils/cn';
 import type { AppPage } from '../types';
 
@@ -78,7 +91,7 @@ const itemVariants = {
 };
 
 export function DashboardPage() {
-  const { setCurrentPage } = useStore();
+  const { setCurrentPage, leads } = useStore();
   const [period, setPeriod] = useState('30d');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -316,7 +329,7 @@ export function DashboardPage() {
             </button>
           </div>
           <div className="space-y-2">
-            {mockLeads.slice(0, 5).map((lead, i) => (
+            {leads.slice(0, 5).map((lead, i) => (
               <motion.button
                 key={lead._id}
                 initial={{ opacity: 0, x: -10 }}
@@ -358,7 +371,7 @@ export function DashboardPage() {
             </button>
           </div>
           <div className="space-y-2">
-            {mockDeals.map((deal) => (
+            {([] as any[]).map((deal) => (
               <motion.button
                 key={deal._id}
                 whileHover={{ x: 2 }}
