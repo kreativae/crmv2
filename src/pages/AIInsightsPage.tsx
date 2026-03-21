@@ -78,74 +78,21 @@ interface RecommendationItem {
 }
 
 /* ────── Data ────── */
-const initialSentiments: SentimentItem[] = [
-  { id: 's1', contact: 'João - Tech Solutions', channel: 'WhatsApp', sentiment: 'positive', score: 87, summary: 'Cliente demonstra alto interesse no plano enterprise. Mencionou urgência na implementação.', suggestion: 'Agendar demo personalizada e enviar proposta com desconto para fechamento rápido.', applied: false },
-  { id: 's2', contact: 'Ana Paula - DM Pro', channel: 'Instagram', sentiment: 'neutral', score: 52, summary: 'Está avaliando concorrentes. Perguntou sobre prazo de implementação e suporte.', suggestion: 'Destacar nosso SLA superior e enviar case study do segmento de marketing.', applied: false },
-  { id: 's3', contact: 'Roberto - Startup IO', channel: 'Telegram', sentiment: 'positive', score: 91, summary: 'Muito engajado, já testou a demo. Alinhado com a proposta.', suggestion: 'Enviar contrato final com condições especiais para startups.', applied: false },
-  { id: 's4', contact: 'Fernanda - Agência Criativa', channel: 'Facebook', sentiment: 'positive', score: 78, summary: 'Adorou a apresentação do produto. Quer incluir mais features.', suggestion: 'Apresentar plano Professional com módulos adicionais.', applied: false },
-  { id: 's5', contact: 'Ricardo - LV Plus', channel: 'Webchat', sentiment: 'negative', score: 23, summary: 'Frustrado com lentidão na integração. Risco de churn.', suggestion: 'Escalar para suporte técnico prioritário e agendar call com CTO.', applied: false },
-  { id: 's6', contact: 'Marcos - ECBR', channel: 'Email', sentiment: 'neutral', score: 61, summary: 'Aguardando proposta revisada. Processo de aprovação interno.', suggestion: 'Enviar proposta detalhada com ROI calculado para facilitar aprovação.', applied: false },
-];
+const initialSentiments: SentimentItem[] = [];
 
-const initialPredictions: PredictionItem[] = [
-  { id: 'p1', lead: 'E-Commerce Brasil', value: 120000, probability: 92, daysToClose: 5, trend: 'up', stage: 'Negociação', lastActivity: 'Enviou contrato assinado', nextAction: 'Confirmar pagamento' },
-  { id: 'p2', lead: 'Saúde Digital', value: 95000, probability: 78, daysToClose: 12, trend: 'up', stage: 'Negociação', lastActivity: 'Call de alinhamento', nextAction: 'Enviar proposta revisada' },
-  { id: 'p3', lead: 'Startup Inovação', value: 65000, probability: 85, daysToClose: 8, trend: 'stable', stage: 'Proposta', lastActivity: 'Demo realizada', nextAction: 'Follow-up sobre decisão' },
-  { id: 'p4', lead: 'Construtora Forte', value: 89000, probability: 45, daysToClose: 25, trend: 'down', stage: 'Qualificação', lastActivity: 'Email sem resposta há 5d', nextAction: 'Ligar para reengajar' },
-  { id: 'p5', lead: 'Digital Marketing Pro', value: 28000, probability: 62, daysToClose: 18, trend: 'up', stage: 'Qualificação', lastActivity: 'Abriu proposta 3x', nextAction: 'Agendar call de fechamento' },
-  { id: 'p6', lead: 'Consultoria Max', value: 55000, probability: 71, daysToClose: 14, trend: 'stable', stage: 'Proposta', lastActivity: 'Pediu desconto', nextAction: 'Preparar contraproposta' },
-];
+const initialPredictions: PredictionItem[] = [];
 
-const sellerRanking: SellerData[] = [
-  { id: 'sr1', name: 'Pedro Santos', score: 94, deals: 15, revenue: 320000, badge: '🥇', trend: '+12%', strengths: ['Fechamento', 'Follow-up', 'Negociação'], weaknesses: ['Prospecção fria'], tips: ['Aumentar volume de prospecção outbound', 'Participar de 2 eventos do setor por mês', 'Mentorear Lucas em técnicas de follow-up'], conversionRate: 38, avgResponseTime: '12min', satisfactionScore: 96 },
-  { id: 'sr2', name: 'Lucas Ferreira', score: 78, deals: 9, revenue: 158000, badge: '🥈', trend: '+8%', strengths: ['Prospecção', 'Qualificação'], weaknesses: ['Fechamento', 'Negociação de preço'], tips: ['Treinar técnicas de fechamento com Pedro', 'Usar script de objeções atualizado', 'Acompanhar 3 calls de fechamento do Pedro'], conversionRate: 24, avgResponseTime: '25min', satisfactionScore: 88 },
-  { id: 'sr3', name: 'Ana Oliveira', score: 85, deals: 12, revenue: 245000, badge: '🥉', trend: '+15%', strengths: ['Atendimento', 'Retenção', 'Upsell'], weaknesses: ['Velocidade de resposta'], tips: ['Ativar notificações push no celular', 'Usar respostas rápidas do omnichannel', 'Dedicar 30min/dia para follow-ups pendentes'], conversionRate: 31, avgResponseTime: '18min', satisfactionScore: 94 },
-];
+const sellerRanking: SellerData[] = [];
 
-const initialRecommendations: RecommendationItem[] = [
-  { id: 'r1', type: 'urgente', title: 'Risco de churn — LV Plus', description: 'O lead Ricardo (LV Plus) demonstrou sentimento negativo nas últimas 3 interações. Recomendamos ação imediata de suporte.', action: 'Abrir ticket prioritário', impact: 'Evitar perda de R$45K/ano', status: 'pending' },
-  { id: 'r2', type: 'oportunidade', title: 'Upsell — Tech Solutions', description: 'Com base no padrão de uso, Tech Solutions pode se beneficiar do módulo de automação avançada (+R$15K/mês).', action: 'Agendar apresentação', impact: 'Receita adicional de R$180K/ano', status: 'pending' },
-  { id: 'r3', type: 'insight', title: 'Melhor horário de contato', description: 'Análise mostra que leads do segmento Enterprise respondem 3x mais entre 10h-12h. Otimize seus envios.', action: 'Aplicar regra de envio', impact: 'Aumento de 35% na taxa de resposta', status: 'pending' },
-  { id: 'r4', type: 'performance', title: 'Pedro Santos superou a meta', description: 'Pedro atingiu 128% da meta mensal. A técnica de follow-up em 24h contribuiu para 40% dos fechamentos.', action: 'Replicar para equipe', impact: 'Potencial aumento de 25% nas vendas', status: 'pending' },
-  { id: 'r5', type: 'oportunidade', title: 'Cross-sell — Saúde Digital', description: 'Cliente usa CRM mas não ativou módulo de automação. Padrão similar a clientes que adotaram com sucesso.', action: 'Enviar demo personalizada', impact: 'Receita adicional de R$8K/mês', status: 'pending' },
-  { id: 'r6', type: 'urgente', title: '3 leads sem contato há 7+ dias', description: 'Construtora Forte, MegaStore e Logística Express não receberam follow-up. Risco de perder oportunidade.', action: 'Atribuir follow-up urgente', impact: 'Pipeline de R$210K em risco', status: 'pending' },
-];
+const initialRecommendations: RecommendationItem[] = [];
 
-const performanceRadar = [
-  { metric: 'Velocidade', A: 92, B: 75 },
-  { metric: 'Qualidade', A: 85, B: 82 },
-  { metric: 'Conversão', A: 88, B: 68 },
-  { metric: 'Satisfação', A: 90, B: 78 },
-  { metric: 'Volume', A: 78, B: 85 },
-  { metric: 'Retenção', A: 82, B: 72 },
-];
+const performanceRadar: { metric: string; A: number; B: number }[] = [];
 
-const weeklyTrend = [
-  { day: 'Seg', score: 72, leads: 8 },
-  { day: 'Ter', score: 78, leads: 12 },
-  { day: 'Qua', score: 85, leads: 15 },
-  { day: 'Qui', score: 82, leads: 11 },
-  { day: 'Sex', score: 90, leads: 18 },
-  { day: 'Sáb', score: 65, leads: 4 },
-  { day: 'Dom', score: 55, leads: 2 },
-];
+const weeklyTrend: { day: string; score: number; leads: number }[] = [];
 
-const channelPerformance = [
-  { channel: 'WhatsApp', leads: 45, conversions: 18, revenue: 285000, color: '#22c55e' },
-  { channel: 'Instagram', leads: 32, conversions: 8, revenue: 120000, color: '#e11d48' },
-  { channel: 'Facebook', leads: 18, conversions: 5, revenue: 75000, color: '#3b82f6' },
-  { channel: 'Email', leads: 28, conversions: 12, revenue: 198000, color: '#8b5cf6' },
-  { channel: 'Webchat', leads: 15, conversions: 4, revenue: 52000, color: '#f59e0b' },
-];
+const channelPerformance: { channel: string; leads: number; conversions: number; revenue: number; color: string }[] = [];
 
-const sentimentTrend = [
-  { month: 'Jan', positive: 58, neutral: 28, negative: 14 },
-  { month: 'Fev', positive: 62, neutral: 25, negative: 13 },
-  { month: 'Mar', positive: 55, neutral: 30, negative: 15 },
-  { month: 'Abr', positive: 68, neutral: 22, negative: 10 },
-  { month: 'Mai', positive: 72, neutral: 20, negative: 8 },
-  { month: 'Jun', positive: 75, neutral: 18, negative: 7 },
-];
+const sentimentTrend: { month: string; positive: number; neutral: number; negative: number }[] = [];
 
 const sentimentConfig = {
   positive: { icon: Smile, label: 'Positivo', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', barColor: 'bg-emerald-500' },
@@ -189,18 +136,18 @@ function AIChatModal({ onClose }: { onClose: () => void }) {
   const respond = useCallback((question: string) => {
     const lc = question.toLowerCase();
     if (lc.includes('fechar') || lc.includes('chance'))
-      return '📊 Com base na análise preditiva, **E-Commerce Brasil** tem 92% de probabilidade de fechamento nos próximos 5 dias (valor: R$120K). Seguido por **Startup Inovação** (85%, R$65K) e **Saúde Digital** (78%, R$95K).\n\n💡 Recomendo priorizar o follow-up com E-Commerce Brasil para garantir a assinatura do contrato esta semana.';
+      return '📊 Nenhuma previsão de fechamento disponível ainda. Cadastre leads e registre interações para que a IA possa gerar previsões.';
     if (lc.includes('conversa') || lc.includes('pendente'))
-      return '📋 Há 4 conversas pendentes hoje:\n\n1. **João (Tech Solutions)** — 3 msgs não lidas, quer saber sobre plano enterprise\n2. **Ana Paula (DM Pro)** — Perguntou sobre prazo de implementação\n3. **Fernanda (Agência)** — 2 msgs sobre apresentação\n4. **Ricardo (LV Plus)** — ⚠️ Sentimento negativo, precisa de suporte urgente\n\n🔴 Prioridade: Ricardo (LV Plus) — risco de churn detectado.';
+      return '📋 Nenhuma conversa pendente no momento. As conversas aparecerão aqui conforme forem chegando pelo Omnichannel.';
     if (lc.includes('vendedor') || lc.includes('meta') || lc.includes('abaixo'))
-      return '📈 Situação atual da equipe:\n\n🥇 **Pedro Santos** — 128% da meta ✅\n🥉 **Ana Oliveira** — 98% da meta (quase lá!)\n🥈 **Lucas Ferreira** — 63% da meta ⚠️\n\n💡 Lucas precisa de suporte. Sugestão: redistribuir 2 leads qualificados do pipeline B2B e agendar sessão de coaching com Pedro Santos.';
+      return '📈 Nenhum dado de metas de vendedores disponível ainda. Configure metas na página Financeiro para acompanhar a performance da equipe.';
     if (lc.includes('sentimento') || lc.includes('análise'))
-      return '😊 Análise de sentimento das últimas 24h:\n\n• **Positivo**: 62% (maioria via WhatsApp)\n• **Neutro**: 25% (emails e formulários)\n• **Negativo**: 13% (1 caso crítico)\n\n🔴 **Alerta**: Ricardo (LV Plus) demonstrou frustração com integração. Recomendo escalar para suporte técnico prioritário.\n\n📈 Tendência: sentimento positivo subiu 8% vs semana passada.';
+      return '😊 Nenhuma análise de sentimento disponível ainda. Conforme as conversas forem registradas no Omnichannel, a IA analisará o sentimento dos clientes automaticamente.';
     if (lc.includes('receita') || lc.includes('faturamento') || lc.includes('revenue'))
-      return '💰 Previsão de receita para os próximos 30 dias:\n\n• **Total previsto**: R$ 452K\n• **Alta confiança (>70%)**: R$ 280K\n• **Média confiança (50-70%)**: R$ 83K\n• **Em risco (<50%)**: R$ 89K\n\n📊 Comparado ao mês anterior, temos um crescimento de 23% na previsão.';
+      return '💰 Nenhuma previsão de receita disponível ainda. Registre transações na página Financeiro para que a IA possa gerar previsões de faturamento.';
     if (lc.includes('automação') || lc.includes('automatizar'))
-      return '🤖 Sugestões de automação baseadas nos padrões identificados:\n\n1. **Follow-up automático 24h** — Leads sem resposta após 1 dia. Impacto estimado: +32% conversão\n2. **Alerta de churn** — Detectar sentimento negativo e notificar gerente. Impacto: -45% cancelamentos\n3. **Score dinâmico** — Atualizar score baseado em interações em tempo real\n\n⚡ Posso criar qualquer uma dessas automações para você. Qual prefere?';
-    return `🤖 Analisando: "${question}"\n\nCom base nos dados atuais, sua operação performa 23% acima da média do setor. Pontos de atenção:\n\n1. Taxa de resposta no Instagram pode melhorar (atual: 78%)\n2. Leads do Google Ads têm score médio mais alto (82 vs 65)\n3. Horários de pico: 10h-12h e 14h-16h\n\n💡 Deseja que eu aprofunde em algum desses pontos?`;
+      return '🤖 Sugestões de automação:\n\n1. **Follow-up automático 24h** — Leads sem resposta após 1 dia\n2. **Alerta de churn** — Detectar sentimento negativo e notificar gerente\n3. **Score dinâmico** — Atualizar score baseado em interações em tempo real\n\n⚡ Posso criar qualquer uma dessas automações para você. Qual prefere?';
+    return `🤖 Analisando: "${question}"\n\nAinda não há dados suficientes para gerar insights personalizados. Continue cadastrando leads, registrando conversas e transações para que a IA possa analisar padrões e gerar recomendações.\n\n💡 Pergunte sobre: metas, conversas, sentimento, receita ou automações.`;
   }, []);
 
   const handleSend = useCallback((text?: string) => {
@@ -1025,7 +972,7 @@ export function AIInsightsPage() {
                   <div className="flex-1">
                     <h4 className="text-sm font-bold text-gray-900">💡 Insight da IA para a Equipe</h4>
                     <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      A análise de padrões sugere que a técnica de <strong>follow-up em 24h</strong> usada por Pedro Santos poderia ser replicada pela equipe.
+                      A análise de padrões sugere que a técnica de <strong>follow-up em 24h</strong> poderia ser replicada pela equipe.
                       Leads que recebem follow-up nas primeiras 24h têm <strong>3.2x mais chance</strong> de converter.
                     </p>
                     <div className="flex gap-2 mt-3">

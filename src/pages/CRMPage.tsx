@@ -52,7 +52,7 @@ const emptyLead: Omit<Lead, '_id'> = {
 };
 
 export function CRMPage() {
-  const { leads, selectedPipelineId, setSelectedPipelineId, addLead, updateLead, deleteLead, moveLeadToStage, addCalendarEvent, currentPage, settingsUsers } = useStore();
+  const { leads, selectedPipelineId, setSelectedPipelineId, addLead, updateLead, deleteLead, moveLeadToStage, addCalendarEvent, currentPage, settingsUsers, currentUser } = useStore();
 
   // View state
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -406,7 +406,7 @@ export function CRMPage() {
       id: `n_${Date.now()}`,
       text: newNote,
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      author: 'Carlos Silva',
+      author: currentUser?.name || 'Você',
     };
     setLeadNotes(prev => ({
       ...prev,

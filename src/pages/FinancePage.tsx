@@ -43,7 +43,7 @@ const CATEGORY_CONFIG: Record<TransactionCategory, { label: string; color: strin
   other: { label: 'Outros', color: '#a855f7' },
 };
 
-const SELLERS = ['Pedro Santos', 'Lucas Ferreira', 'Ana Oliveira', 'Carlos Silva', 'Maria Costa'];
+const SELLERS: string[] = [];
 
 function formatCurrency(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -115,14 +115,7 @@ export function FinancePage() {
   }, [financeRecords]);
 
   // Chart data
-  const revenueChartData = [
-    { month: 'Jul', receita: 180000, despesa: 32000 },
-    { month: 'Ago', receita: 220000, despesa: 28000 },
-    { month: 'Set', receita: 195000, despesa: 35000 },
-    { month: 'Out', receita: 310000, despesa: 41000 },
-    { month: 'Nov', receita: 285000, despesa: 38000 },
-    { month: 'Dez', receita: 478000, despesa: 45000 },
-  ];
+  const revenueChartData = [] as { month: string; receita: number; despesa: number }[];
 
   const categoryData = useMemo(() => {
     const cats: Record<string, number> = {};
@@ -136,12 +129,7 @@ export function FinancePage() {
     }).sort((a, b) => b.value - a.value);
   }, [financeRecords]);
 
-  const sellerGoals = [
-    { name: 'Pedro Santos', revenue: 320000, goal: 400000, deals: 15, commRate: 10 },
-    { name: 'Lucas Ferreira', revenue: 158000, goal: 250000, deals: 9, commRate: 8 },
-    { name: 'Ana Oliveira', revenue: 92000, goal: 150000, deals: 6, commRate: 7 },
-    { name: 'Maria Costa', revenue: 45000, goal: 100000, deals: 4, commRate: 6 },
-  ];
+  const sellerGoals = [] as { name: string; revenue: number; goal: number; deals: number; commRate: number }[];
 
   const activeFilterCount = [typeFilter !== 'all', statusFilter !== 'all', sellerFilter !== 'all', !!dateFrom, !!dateTo].filter(Boolean).length;
 
@@ -640,45 +628,20 @@ export function FinancePage() {
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-bold text-gray-900 mb-1">Receita Mensal por Vendedor</h3>
             <p className="text-xs text-gray-400 mb-5">Comparativo mensal de performance</p>
+            {sellerGoals.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={[
-                { month: 'Jul', pedro: 95000, lucas: 65000, ana: 32000, maria: 18000 },
-                { month: 'Ago', pedro: 110000, lucas: 78000, ana: 38000, maria: 22000 },
-                { month: 'Set', pedro: 88000, lucas: 72000, ana: 42000, maria: 20000 },
-                { month: 'Out', pedro: 145000, lucas: 98000, ana: 55000, maria: 28000 },
-                { month: 'Nov', pedro: 132000, lucas: 85000, ana: 48000, maria: 25000 },
-                { month: 'Dez', pedro: 168000, lucas: 102000, ana: 62000, maria: 35000 },
-              ]}>
-                <defs>
-                  <linearGradient id="gradPedro" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#818cf8" />
-                  </linearGradient>
-                  <linearGradient id="gradLucas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#60a5fa" />
-                  </linearGradient>
-                  <linearGradient id="gradAna" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="#34d399" />
-                  </linearGradient>
-                  <linearGradient id="gradMaria" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" />
-                    <stop offset="100%" stopColor="#fbbf24" />
-                  </linearGradient>
-                </defs>
+              <BarChart data={[]}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v / 1000}K`} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                   formatter={(value) => [formatCurrency(Number(value))]} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }} />
-                <Bar dataKey="pedro" name="Pedro Santos" fill="url(#gradPedro)" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="lucas" name="Lucas Ferreira" fill="url(#gradLucas)" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="ana" name="Ana Oliveira" fill="url(#gradAna)" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="maria" name="Maria Costa" fill="url(#gradMaria)" radius={[4, 4, 0, 0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-400 text-sm">Nenhum dado de vendedores disponível</div>
+            )}
           </div>
 
           {/* Seller Goal Cards */}

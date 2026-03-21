@@ -60,14 +60,7 @@ interface Notification {
   initials?: string;
 }
 
-const initialNotifications: Notification[] = [
-  { id: 'n1', type: 'lead', title: 'Novo lead capturado', description: 'Maria Costa entrou via Google Ads', time: '2 min', read: false, page: 'crm', initials: 'MC' },
-  { id: 'n2', type: 'message', title: 'Nova mensagem WhatsApp', description: 'João Silva: "Gostaria de saber mais..."', time: '5 min', read: false, page: 'omnichannel', initials: 'JS' },
-  { id: 'n3', type: 'task', title: 'Tarefa vencendo hoje', description: 'Follow-up com Tech Solutions', time: '15 min', read: false, page: 'tasks', initials: 'TS' },
-  { id: 'n4', type: 'deal', title: 'Deal atualizado', description: 'Proposta de R$45.000 aceita', time: '1h', read: false, page: 'finance', initials: 'DA' },
-  { id: 'n5', type: 'automation', title: 'Automação executada', description: 'Fluxo "Boas-vindas" processou 12 leads', time: '2h', read: true, page: 'automation', initials: 'AE' },
-  { id: 'n6', type: 'system', title: 'Backup concluído', description: 'Backup automático realizado com sucesso', time: '3h', read: true, page: 'settings', initials: 'SY' },
-];
+const initialNotifications: Notification[] = [];
 
 const notificationColors: Record<string, string> = {
   lead: 'bg-blue-500',

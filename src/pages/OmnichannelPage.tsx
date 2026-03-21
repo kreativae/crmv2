@@ -34,20 +34,9 @@ const quickReplies = [
 
 const emojis = ['😊', '👍', '❤️', '🎉', '👋', '🙏', '✅', '⭐', '🚀', '💡', '📞', '📧', '📅', '💼', '🤝', '😄', '🔥', '💪', '👏', '🎯', '✨', '💯', '🙌', '😎'];
 
-const aiSuggestions = [
-  { text: 'Com base no histórico, o cliente parece interessado em nosso plano Enterprise. Sugiro mencionar os benefícios exclusivos.', type: 'sales' },
-  { text: 'O tom do cliente indica urgência. Recomendo priorizar a resolução e oferecer um canal direto de suporte.', type: 'support' },
-  { text: 'Este cliente já comprou 3x conosco. Considere oferecer um programa de fidelidade ou desconto especial.', type: 'loyalty' },
-];
+const aiSuggestions: { text: string; type: string }[] = [];
 
-// Mock agents for transfer
-const agents = [
-  { id: '1', name: 'Ana Silva', department: 'Vendas', status: 'online', conversations: 3 },
-  { id: '2', name: 'Carlos Santos', department: 'Suporte', status: 'online', conversations: 5 },
-  { id: '3', name: 'Mariana Costa', department: 'Financeiro', status: 'away', conversations: 2 },
-  { id: '4', name: 'Pedro Oliveira', department: 'Vendas', status: 'online', conversations: 4 },
-  { id: '5', name: 'Julia Ferreira', department: 'Suporte', status: 'offline', conversations: 0 },
-];
+const agents: { id: string; name: string; department: string; status: string; conversations: number }[] = [];
 
 export function OmnichannelPage() {
   const {

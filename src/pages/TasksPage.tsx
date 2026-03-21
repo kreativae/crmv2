@@ -29,13 +29,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: React.ElementType;
 
 const priorityOrder: TaskPriority[] = ['urgent', 'high', 'medium', 'low'];
 
-const teamMembers = [
-  { id: 'u1', name: 'Carlos Silva' },
-  { id: 'u2', name: 'Ana Oliveira' },
-  { id: 'u3', name: 'Pedro Santos' },
-  { id: 'u4', name: 'Maria Costa' },
-  { id: 'u5', name: 'Lucas Ferreira' },
-];
+const teamMembers: { id: string; name: string }[] = [];
 
 /* ───── Date helpers ───── */
 function isOverdue(dateStr: string) {
@@ -114,8 +108,8 @@ function TaskFormModal({ task, onClose, onSave, mode }: {
     priority: (task?.priority || 'medium') as TaskPriority,
     status: (task?.status || 'todo') as TaskStatus,
     dueDate: task?.dueDate || getTodayStr(),
-    assignedTo: task?.assignedTo || 'u3',
-    assignedName: task?.assignedName || 'Pedro Santos',
+    assignedTo: task?.assignedTo || '',
+    assignedName: task?.assignedName || '',
     leadName: task?.leadName || '',
     tags: task?.tags || [],
     estimatedHours: task?.estimatedHours || 1,
@@ -1512,8 +1506,8 @@ export function TasksPage() {
       organizationId: 'org_1',
       title: data.title || '',
       description: data.description || '',
-      assignedTo: data.assignedTo || 'u3',
-      assignedName: data.assignedName || 'Pedro Santos',
+      assignedTo: data.assignedTo || '',
+      assignedName: data.assignedName || '',
       leadId: undefined,
       leadName: data.leadName,
       priority: data.priority || 'medium',

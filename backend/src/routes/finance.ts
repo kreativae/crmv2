@@ -219,13 +219,8 @@ router.delete('/bulk', async (req, res, next) => {
 // Get goals
 router.get('/goals/list', async (req, res, next) => {
   try {
-    // For now, return mock goals - in production, this would be a separate Goals model
-    res.json([
-      { id: '1', sellerId: 'user1', sellerName: 'João Silva', goal: 50000, current: 42000, commission: 10 },
-      { id: '2', sellerId: 'user2', sellerName: 'Maria Santos', goal: 45000, current: 48000, commission: 12 },
-      { id: '3', sellerId: 'user3', sellerName: 'Pedro Oliveira', goal: 40000, current: 35000, commission: 8 },
-      { id: '4', sellerId: 'user4', sellerName: 'Ana Costa', goal: 55000, current: 52000, commission: 15 },
-    ]);
+    // For now, return empty goals - in production, this would be a separate Goals model
+    res.json([]);
   } catch (error) {
     next(error);
   }
