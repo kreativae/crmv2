@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
+import { authService } from './api';
+import type { AppPage } from './types';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -17,8 +19,43 @@ import { initEmergencyUnblock, forceCleanup } from './utils/fixClickBlock';
 import { logger } from './utils/logger';
 
 export function App() {
-  const { currentPage, isAuthenticated } = useStore();
+  const { currentPage, isAuthenticated, setCurrentPage, login, logout } = useStore();
   const prevPageRef = useRef(currentPage);
+  const didBootstrapAuthRef = useRef(false);
+  const [authBootstrapping, setAuthBootstrapping] = useState(true);
+
+  useEffect(() => {
+    if (didBootstrapAuthRef.current) return;
+    didBootstrapAuthRef.current = true;
+
+    const bootstrapAuth = async () => {
+      try {
+        await authService.refreshToken();
+        const me = await authService.getMe();
+        if (me?.user) {
+          login(me.user.email, '', me.user);
+          const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
+          if (savedPage && savedPage !== 'login') {
+            setCurrentPage(savedPage);
+          }
+        } else {
+          logout();
+        }
+      } catch {
+        logout();
+      } finally {
+        setAuthBootstrapping(false);
+      }
+    };
+
+    bootstrapAuth();
+  }, [login, logout, setCurrentPage]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentPage !== 'login') {
+      localStorage.setItem('nexcrm:lastPage', currentPage);
+    }
+  }, [isAuthenticated, currentPage]);
 
   // Initialize emergency unblock handler (ESC x3 to force cleanup)
   useEffect(() => {
@@ -95,6 +132,10 @@ export function App() {
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
   }, []);
+
+  if (authBootstrapping) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">Carregando sessao...</div>;
+  }
 
   if (!isAuthenticated || currentPage === 'login') {
     return <LoginPage />;

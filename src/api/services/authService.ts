@@ -1,3 +1,4 @@
+import axios from 'axios';
 import api from '../client';
 import { setAccessToken, getAccessToken } from '../client';
 import type { User } from '../../types';
@@ -21,6 +22,10 @@ export interface AuthResponse {
   accessToken: string;
 }
 
+type UserResponse = {
+  user: User;
+};
+
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', data);
@@ -39,8 +44,14 @@ export const authService = {
   },
 
   async refreshToken(): Promise<{ accessToken: string }> {
-    // Refresh token is sent via httpOnly cookie automatically
-    const response = await api.post('/auth/refresh');
+    const API_URL = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:3001/api';
+    // Use raw axios here to avoid interceptor loops when no session exists
+    const response = await axios.post(`${API_URL}/auth/refresh`, {}, {
+      withCredentials: true,
+    });
+    if (response.data?.accessToken) {
+      setAccessToken(response.data.accessToken);
+    }
     return response.data;
   },
 
@@ -54,13 +65,13 @@ export const authService = {
     return response.data;
   },
 
-  async getMe(): Promise<{ success: boolean; data: User }> {
-    const response = await api.get('/auth/me');
+  async getMe(): Promise<UserResponse> {
+    const response = await api.get<UserResponse>('/auth/me');
     return response.data;
   },
 
-  async updateProfile(data: Partial<User>): Promise<{ success: boolean; data: User }> {
-    const response = await api.put('/auth/me', data);
+  async updateProfile(data: Partial<User>): Promise<UserResponse> {
+    const response = await api.put<UserResponse>('/auth/me', data);
     return response.data;
   },
 
