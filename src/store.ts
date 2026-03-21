@@ -109,6 +109,7 @@ interface AppState {
   deleteWebhook: (id: string) => void;
 
   integrations: IntegrationConfig[];
+  setIntegrations: (integrations: IntegrationConfig[]) => void;
   updateIntegration: (name: string, updates: Partial<IntegrationConfig>) => void;
 
   auditLogs: AuditLog[];
@@ -316,7 +317,24 @@ export const useStore = create<AppState>((set) => ({
   deleteWebhook: (id) => set((state) => ({ webhooks: state.webhooks.filter(w => w._id !== id) })),
 
   integrations: [],
-  updateIntegration: (name, updates) => set((state) => ({ integrations: state.integrations.map(i => i.name === name ? { ...i, ...updates } : i) })),
+  setIntegrations: (integrations) => set({ integrations }),
+  updateIntegration: (name, updates) => set((state) => {
+    const existing = state.integrations.find(i => i.name === name);
+    if (!existing) {
+      const next: IntegrationConfig = {
+        name,
+        status: 'disconnected',
+        icon: 'plug',
+        description: 'Integração disponível',
+        category: 'all',
+        ...updates,
+      };
+      return { integrations: [...state.integrations, next] };
+    }
+    return {
+      integrations: state.integrations.map(i => i.name === name ? { ...i, ...updates } : i),
+    };
+  }),
 
   // Branding settings
   branding: {

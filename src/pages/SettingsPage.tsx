@@ -778,8 +778,26 @@ interface OAuthConfig {
   scopes: string;
 }
 
+const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
+  { name: 'WhatsApp', status: 'disconnected', icon: 'message-circle', description: 'Conecte seu WhatsApp Business para atendimento omnichannel', category: 'messaging' },
+  { name: 'Instagram', status: 'disconnected', icon: 'instagram', description: 'Gerencie DMs e comentários direto no CRM', category: 'messaging' },
+  { name: 'Facebook', status: 'disconnected', icon: 'facebook', description: 'Inbox unificado para Messenger e páginas', category: 'messaging' },
+  { name: 'Telegram', status: 'disconnected', icon: 'send', description: 'Atendimento via bot e mensagens Telegram', category: 'messaging' },
+  { name: 'Google Calendar', status: 'disconnected', icon: 'calendar', description: 'Sincronize reuniões e lembretes com a equipe', category: 'productivity' },
+  { name: 'Slack', status: 'disconnected', icon: 'slack', description: 'Receba alertas operacionais em canais do Slack', category: 'productivity' },
+  { name: 'Stripe', status: 'disconnected', icon: 'credit-card', description: 'Cobranças, assinaturas e conciliação de pagamentos', category: 'payment' },
+  { name: 'Cloudinary', status: 'disconnected', icon: 'cloud', description: 'Armazene mídia e anexos com CDN global', category: 'storage' },
+  { name: 'HubSpot', status: 'disconnected', icon: 'database', description: 'Sincronize contatos e negócios com HubSpot', category: 'crm' },
+  { name: 'Mailchimp', status: 'disconnected', icon: 'mail', description: 'Envio de campanhas e automações de marketing', category: 'marketing' },
+  { name: 'Google Analytics', status: 'disconnected', icon: 'bar-chart', description: 'Medição de conversão e atribuição de canais', category: 'analytics' },
+  { name: 'Zapier', status: 'disconnected', icon: 'zap', description: 'Automatize fluxos entre centenas de apps', category: 'automation' },
+  { name: 'Google OAuth', status: 'disconnected', icon: 'shield', description: 'Login social com contas Google', category: 'auth' },
+  { name: 'Microsoft OAuth', status: 'disconnected', icon: 'shield', description: 'Login social com contas Microsoft', category: 'auth' },
+  { name: 'Apple Sign In', status: 'disconnected', icon: 'shield', description: 'Login social com Apple ID', category: 'auth' },
+];
+
 function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast['type']) => void }) {
-  const { integrations, updateIntegration } = useStore();
+  const { integrations, setIntegrations, updateIntegration } = useStore();
   const [configModal, setConfigModal] = useState<IntegrationConfig | null>(null);
   const [disconnectConfirm, setDisconnectConfirm] = useState<string | null>(null);
   const [catFilter, setCatFilter] = useState('all');
@@ -799,6 +817,14 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
     serviceId: '',
     scopes: 'email profile openid',
   });
+
+  useEffect(() => {
+    if (integrations.length === 0) {
+      setIntegrations(DEFAULT_INTEGRATIONS);
+    }
+  }, [integrations.length, setIntegrations]);
+
+  const integrationsData = integrations.length > 0 ? integrations : DEFAULT_INTEGRATIONS;
 
   // Check if integration is an OAuth provider
   const isOAuthProvider = (name: string) => 
@@ -869,9 +895,15 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
     }, 2000);
   };
 
-  const categories = ['all', ...Array.from(new Set(integrations.map(i => i.category)))];
-  const filtered = catFilter === 'all' ? integrations : integrations.filter(i => i.category === catFilter);
-  const connectedCount = integrations.filter(i => i.status === 'connected').length;
+  const categories = ['all', ...Array.from(new Set(integrationsData.map(i => i.category)))];
+  const filtered = catFilter === 'all' ? integrationsData : integrationsData.filter(i => i.category === catFilter);
+  const connectedCount = integrationsData.filter(i => i.status === 'connected').length;
+
+  useEffect(() => {
+    if (catFilter !== 'all' && !categories.includes(catFilter)) {
+      setCatFilter('all');
+    }
+  }, [catFilter, categories]);
 
   const handleConnect = (name: string) => {
     setConnecting(name);
@@ -910,7 +942,7 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
           <p className="text-sm text-gray-500 mt-0.5">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
-              {connectedCount} de {integrations.length} conectadas
+              {connectedCount} de {integrationsData.length} conectadas
             </span>
           </p>
         </div>
@@ -919,7 +951,7 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
       {/* Category Filter */}
       <div className="flex gap-1.5 sm:gap-2 flex-wrap">
         {categories.map(c => {
-          const count = c === 'all' ? integrations.length : integrations.filter(i => i.category === c).length;
+          const count = c === 'all' ? integrationsData.length : integrationsData.filter(i => i.category === c).length;
           return (
             <motion.button key={c} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               onClick={() => setCatFilter(c)}
