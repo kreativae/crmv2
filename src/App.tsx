@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
-import { authService } from './api';
+import { authService, setAccessToken } from './api';
+import { getPersistedSession } from './api/services/authService';
 import type { AppPage } from './types';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
@@ -29,6 +30,30 @@ export function App() {
     didBootstrapAuthRef.current = true;
 
     const bootstrapAuth = async () => {
+      const persisted = getPersistedSession();
+      if (persisted?.token && persisted?.user) {
+        setAccessToken(persisted.token);
+        login(persisted.user.email, '', persisted.user);
+        const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
+        if (savedPage && savedPage !== 'login') {
+          setCurrentPage(savedPage);
+        }
+        setAuthBootstrapping(false);
+
+        // Validate silently in background; do not force logout if network/cookie fails.
+        authService.refreshToken()
+          .then(() => authService.getMe())
+          .then((me) => {
+            if (me?.user) {
+              login(me.user.email, '', me.user);
+            }
+          })
+          .catch(() => {
+            // Keep local session; API interceptor will handle true expiration on requests.
+          });
+        return;
+      }
+
       try {
         await authService.refreshToken();
         const me = await authService.getMe();

@@ -3,6 +3,32 @@ import api from '../client';
 import { setAccessToken, getAccessToken } from '../client';
 import type { User } from '../../types';
 
+const AUTH_TOKEN_KEY = 'nexcrm:accessToken';
+const AUTH_USER_KEY = 'nexcrm:user';
+
+const persistSession = (token: string, user: User) => {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+};
+
+const clearPersistedSession = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+};
+
+export const getPersistedSession = (): { token: string; user: User } | null => {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const userRaw = localStorage.getItem(AUTH_USER_KEY);
+  if (!token || !userRaw) return null;
+  try {
+    const user = JSON.parse(userRaw) as User;
+    return { token, user };
+  } catch {
+    clearPersistedSession();
+    return null;
+  }
+};
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -31,6 +57,7 @@ export const authService = {
     const response = await api.post<AuthResponse>('/auth/login', data);
     if (response.data.accessToken) {
       setAccessToken(response.data.accessToken);
+      persistSession(response.data.accessToken, response.data.user);
     }
     return response.data;
   },
@@ -39,6 +66,7 @@ export const authService = {
     const response = await api.post<AuthResponse>('/auth/register', data);
     if (response.data.accessToken) {
       setAccessToken(response.data.accessToken);
+      persistSession(response.data.accessToken, response.data.user);
     }
     return response.data;
   },
@@ -51,6 +79,10 @@ export const authService = {
     });
     if (response.data?.accessToken) {
       setAccessToken(response.data.accessToken);
+      const persisted = getPersistedSession();
+      if (persisted?.user) {
+        persistSession(response.data.accessToken, persisted.user);
+      }
     }
     return response.data;
   },
@@ -67,11 +99,19 @@ export const authService = {
 
   async getMe(): Promise<UserResponse> {
     const response = await api.get<UserResponse>('/auth/me');
+    if (response.data?.user) {
+      const token = getAccessToken();
+      if (token) persistSession(token, response.data.user);
+    }
     return response.data;
   },
 
   async updateProfile(data: Partial<User>): Promise<UserResponse> {
     const response = await api.put<UserResponse>('/auth/me', data);
+    if (response.data?.user) {
+      const token = getAccessToken();
+      if (token) persistSession(token, response.data.user);
+    }
     return response.data;
   },
 
@@ -87,6 +127,7 @@ export const authService = {
       // Ignore errors during logout
     }
     setAccessToken(null);
+    clearPersistedSession();
   },
 
   isAuthenticated(): boolean {
