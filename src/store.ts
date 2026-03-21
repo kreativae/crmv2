@@ -1,15 +1,5 @@
 import { create } from 'zustand';
 import type { AppPage, User, Lead, Conversation, Task, Channel, ConversationStatus, AutomationFlow, AutomationExecution, FinanceRecord, SellerGoal, CalendarEvent, Client } from './types';
-import { mockUsers, mockLeads, mockConversations, mockTasks, mockAutomations, mockExecutions, mockFinanceRecords, mockSellerGoals } from './data/mockData';
-
-const mockClients: Client[] = [
-  { _id: 'cli_1', organizationId: 'org_1', name: 'João Silva', email: 'joao@techcorp.com', phone: '(11) 98765-4321', company: 'TechCorp Solutions', industry: 'technology', address: 'Rua das Flores, 123', city: 'São Paulo', state: 'SP', zipCode: '01310-100', country: 'Brasil', status: 'active', tags: ['enterprise', 'tech'], notes: [], annualSpend: 125000, leadsCount: 3, conversationsCount: 15, lastInteraction: '2024-01-15T10:30:00Z', createdAt: '2023-06-15T08:00:00Z', updatedAt: '2024-01-15T10:30:00Z' },
-  { _id: 'cli_2', organizationId: 'org_1', name: 'Maria Santos', email: 'maria@dataflow.io', phone: '(11) 97654-3210', company: 'DataFlow Analytics', industry: 'analytics', address: 'Av. Paulista, 1000', city: 'São Paulo', state: 'SP', zipCode: '01310-200', country: 'Brasil', status: 'active', tags: ['startup', 'analytics'], notes: [{ id: 'n_1', content: 'Cliente muito engajado', author: 'Carlos', createdAt: '2024-01-10T14:00:00Z' }], annualSpend: 85000, leadsCount: 2, conversationsCount: 8, lastInteraction: '2024-01-14T16:45:00Z', createdAt: '2023-08-20T10:00:00Z', updatedAt: '2024-01-14T16:45:00Z' },
-  { _id: 'cli_3', organizationId: 'org_1', name: 'Pedro Costa', email: 'pedro@cloudbase.com.br', phone: '(21) 99876-5432', company: 'CloudBase Inc', industry: 'cloud', address: 'Rua do Comércio, 500', city: 'Rio de Janeiro', state: 'RJ', zipCode: '20040-020', country: 'Brasil', status: 'active', tags: ['enterprise', 'cloud'], notes: [], annualSpend: 200000, leadsCount: 5, conversationsCount: 22, lastInteraction: '2024-01-15T09:00:00Z', createdAt: '2023-03-10T14:00:00Z', updatedAt: '2024-01-15T09:00:00Z' },
-  { _id: 'cli_4', organizationId: 'org_1', name: 'Ana Oliveira', email: 'ana@megasoft.com', phone: '(31) 98765-1234', company: 'MegaSoft Ltd', industry: 'software', address: 'Av. Afonso Pena, 2000', city: 'Belo Horizonte', state: 'MG', zipCode: '30130-009', country: 'Brasil', status: 'inactive', tags: ['mid-market'], notes: [], annualSpend: 45000, leadsCount: 1, conversationsCount: 5, lastInteraction: '2023-12-20T11:30:00Z', createdAt: '2023-09-05T16:00:00Z', updatedAt: '2023-12-20T11:30:00Z' },
-  { _id: 'cli_5', organizationId: 'org_1', name: 'Lucas Ferreira', email: 'lucas@startupbr.io', phone: '(11) 91234-5678', company: 'StartupBR', industry: 'startup', address: 'Rua Augusta, 1500', city: 'São Paulo', state: 'SP', zipCode: '01304-001', country: 'Brasil', status: 'active', tags: ['startup', 'fintech'], notes: [], annualSpend: 32000, leadsCount: 1, conversationsCount: 12, lastInteraction: '2024-01-13T14:20:00Z', createdAt: '2023-11-01T09:00:00Z', updatedAt: '2024-01-13T14:20:00Z' },
-  { _id: 'cli_6', organizationId: 'org_1', name: 'Carla Mendes', email: 'carla@vendamais.com.br', phone: '(41) 99988-7766', company: 'VendaMais Corp', industry: 'retail', address: 'Rua XV de Novembro, 300', city: 'Curitiba', state: 'PR', zipCode: '80020-310', country: 'Brasil', status: 'active', tags: ['retail', 'enterprise'], notes: [], annualSpend: 150000, leadsCount: 4, conversationsCount: 18, lastInteraction: '2024-01-15T08:15:00Z', createdAt: '2023-04-22T11:00:00Z', updatedAt: '2024-01-15T08:15:00Z' },
-];
 
 export interface SettingsUser extends User {
   permissions?: string[];
@@ -55,7 +45,7 @@ interface AppState {
 
   isAuthenticated: boolean;
   currentUser: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string, user?: User) => boolean;
   logout: () => void;
 
   sidebarCollapsed: boolean;
@@ -150,19 +140,30 @@ export const useStore = create<AppState>((set) => ({
 
   isAuthenticated: false,
   currentUser: null,
-  login: (email: string, _password: string) => {
-    const user = mockUsers.find(u => u.email === email);
-    if (user || email) {
+  login: (email: string, _password: string, user?: User) => {
+    if (user) {
       set({
         isAuthenticated: true,
-        currentUser: user || { ...mockUsers[0], email },
+        currentUser: user,
+        currentPage: 'dashboard',
+      });
+      return true;
+    }
+    if (email) {
+      set({
+        isAuthenticated: true,
+        currentUser: { _id: 'temp', organizationId: '', name: email.split('@')[0], email, role: 'sales', active: true, status: 'online', avatar: '' },
         currentPage: 'dashboard',
       });
       return true;
     }
     return false;
   },
-  logout: () => set({ isAuthenticated: false, currentUser: null, currentPage: 'login' }),
+  logout: () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    set({ isAuthenticated: false, currentUser: null, currentPage: 'login' });
+  },
 
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -170,7 +171,7 @@ export const useStore = create<AppState>((set) => ({
   aiAssistantVisible: true,
   toggleAiAssistant: () => set((state) => ({ aiAssistantVisible: !state.aiAssistantVisible })),
 
-  leads: mockLeads,
+  leads: [],
   addLead: (lead) =>
     set((state) => ({
       leads: [lead, ...state.leads],
@@ -188,7 +189,7 @@ export const useStore = create<AppState>((set) => ({
       leads: state.leads.map((l) => (l._id === leadId ? { ...l, stageId } : l)),
     })),
 
-  conversations: mockConversations,
+  conversations: [],
   selectedConversation: null,
   setSelectedConversation: (id) => set({ selectedConversation: id }),
   sendMessage: (conversationId, content) =>
@@ -218,7 +219,7 @@ export const useStore = create<AppState>((set) => ({
   statusFilter: 'all',
   setStatusFilter: (filter) => set({ statusFilter: filter }),
 
-  tasks: mockTasks,
+  tasks: [],
   updateTaskStatus: (taskId, status) =>
     set((state) => ({
       tasks: state.tasks.map((t) => (t._id === taskId ? { ...t, status } : t)),
@@ -242,8 +243,8 @@ export const useStore = create<AppState>((set) => ({
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
 
-  automations: mockAutomations,
-  automationExecutions: mockExecutions,
+  automations: [],
+  automationExecutions: [],
   addAutomation: (automation) =>
     set((state) => ({
       automations: [automation, ...state.automations],
@@ -286,7 +287,7 @@ export const useStore = create<AppState>((set) => ({
       automationExecutions: [execution, ...state.automationExecutions],
     })),
 
-  financeRecords: mockFinanceRecords,
+  financeRecords: [],
   addFinanceRecord: (record) =>
     set((state) => ({
       financeRecords: [record, ...state.financeRecords],
@@ -300,13 +301,13 @@ export const useStore = create<AppState>((set) => ({
       financeRecords: state.financeRecords.filter((r) => r._id !== id),
     })),
 
-  sellerGoals: mockSellerGoals,
+  sellerGoals: [],
   updateSellerGoal: (id, updates) =>
     set((state) => ({
       sellerGoals: state.sellerGoals.map((g) => (g._id === id ? { ...g, ...updates } : g)),
     })),
 
-  settingsUsers: mockUsers.map(u => ({ ...u, permissions: ['dashboard', 'crm', 'omnichannel', 'tasks'], lastLogin: '2024-01-15T10:30:00Z' })) as SettingsUser[],
+  settingsUsers: [],
   addSettingsUser: (user) => set((state) => ({ settingsUsers: [user, ...state.settingsUsers] })),
   updateSettingsUser: (id, updates) => set((state) => ({ settingsUsers: state.settingsUsers.map(u => u._id === id ? { ...u, ...updates } : u) })),
   deleteSettingsUser: (id) => set((state) => ({ settingsUsers: state.settingsUsers.filter(u => u._id !== id) })),
@@ -407,7 +408,7 @@ export const useStore = create<AppState>((set) => ({
   updateCalendarEvent: (id, updates) => set((state) => ({ calendarEvents: state.calendarEvents.map(e => e._id === id ? { ...e, ...updates } : e) })),
   deleteCalendarEvent: (id) => set((state) => ({ calendarEvents: state.calendarEvents.filter(e => e._id !== id) })),
 
-  clients: mockClients,
+  clients: [],
   addClient: (client) => set((state) => ({ clients: [client, ...state.clients] })),
   updateClient: (id, updates) => set((state) => ({ clients: state.clients.map(c => c._id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c) })),
   deleteClient: (id) => set((state) => ({ clients: state.clients.filter(c => c._id !== id) })),

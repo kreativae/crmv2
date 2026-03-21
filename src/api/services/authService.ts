@@ -15,34 +15,24 @@ export interface RegisterRequest {
 }
 
 export interface AuthResponse {
-  success: boolean;
-  data: {
-    user: User;
-    accessToken: string;
-    refreshToken: string;
-    organization: {
-      _id: string;
-      name: string;
-      plan: string;
-    };
-  };
+  message: string;
+  user: User;
+  accessToken: string;
 }
 
 export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', data);
-    if (response.data.success) {
-      localStorage.setItem('accessToken', response.data.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.data.refreshToken);
+    if (response.data.accessToken) {
+      localStorage.setItem('accessToken', response.data.accessToken);
     }
     return response.data;
   },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/register', data);
-    if (response.data.success) {
-      localStorage.setItem('accessToken', response.data.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.data.refreshToken);
+    if (response.data.accessToken) {
+      localStorage.setItem('accessToken', response.data.accessToken);
     }
     return response.data;
   },

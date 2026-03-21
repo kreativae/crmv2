@@ -40,24 +40,16 @@ export function useAuth(): UseAuthReturn {
     setError(null);
     
     try {
-      // Try API first
       const response = await authService.login({ email, password });
-      if (response.success) {
-        storeLogin(email, password);
+      if (response.accessToken) {
+        storeLogin(email, password, response.user);
         setCurrentPage('dashboard');
         return true;
       }
       return false;
-    } catch (err) {
-      // Fallback to mock login for demo
-      console.log('API not available, using mock login');
-      const success = storeLogin(email, password);
-      if (success) {
-        setCurrentPage('dashboard');
-      } else {
-        setError('Invalid credentials');
-      }
-      return success;
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Credenciais inválidas');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -75,18 +67,15 @@ export function useAuth(): UseAuthReturn {
     
     try {
       const response = await authService.register(data);
-      if (response.success) {
-        storeLogin(data.email, data.password);
+      if (response.accessToken) {
+        storeLogin(data.email, data.password, response.user);
         setCurrentPage('dashboard');
         return true;
       }
       return false;
-    } catch (err) {
-      // Fallback to mock for demo
-      console.log('API not available, using mock register');
-      storeLogin(data.email, data.password);
-      setCurrentPage('dashboard');
-      return true;
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Erro ao criar conta');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -102,11 +91,10 @@ export function useAuth(): UseAuthReturn {
     setError(null);
     
     try {
-      const response = await authService.forgotPassword(email);
-      return response.success;
-    } catch (err) {
-      // Simulate success for demo
+      await authService.forgotPassword(email);
       return true;
+    } catch {
+      return false;
     } finally {
       setLoading(false);
     }

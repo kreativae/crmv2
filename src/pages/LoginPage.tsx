@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { authService } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Hexagon, Eye, EyeOff, ArrowRight, Shield, Zap, MessageSquare, BarChart3,
@@ -68,8 +69,8 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 /* ── Main Component ── */
 export function LoginPage() {
   const { login } = useStore();
-  const [email, setEmail] = useState('carlos@nexcrm.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'register' | 'recover'>('login');
@@ -82,37 +83,58 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('Business');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
+    setErrorMsg('');
+    try {
+      const response = await authService.login({ email, password });
       setShowSuccess(true);
       setTimeout(() => {
-        login(email, password);
+        login(email, password, response.user);
         setIsLoading(false);
       }, 800);
-    }, 1200);
-  };
-
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setShowSuccess(true);
-      setTimeout(() => {
-        login(registerEmail || email, registerPass || password);
-        setIsLoading(false);
-      }, 800);
-    }, 1200);
-  };
-
-  const handleRecover = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setRecoverSent(true);
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.error || err?.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.');
       setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await authService.register({
+        name: registerName,
+        email: registerEmail,
+        password: registerPass,
+        organizationName: registerOrg,
+      });
+      setShowSuccess(true);
+      setTimeout(() => {
+        login(registerEmail, registerPass, response.user);
+        setIsLoading(false);
+      }, 800);
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.error || err?.response?.data?.message || 'Erro ao criar conta.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleRecover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await authService.forgotPassword(recoverEmail);
+      setRecoverSent(true);
+    } catch {
+      setRecoverSent(true);
+    } finally {
+      setIsLoading(false);
+    }
     }, 1500);
   };
 
@@ -361,6 +383,11 @@ export function LoginPage() {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-5">
+                  {errorMsg && (
+                    <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                      {errorMsg}
+                    </div>
+                  )}
                   <div>
                     <label className="mb-2 block text-[13px] font-semibold text-gray-700">Email</label>
                     <div className="relative">
@@ -568,6 +595,11 @@ export function LoginPage() {
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-4">
+                  {errorMsg && (
+                    <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                      {errorMsg}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="mb-2 block text-[13px] font-semibold text-gray-700">Organização</label>
