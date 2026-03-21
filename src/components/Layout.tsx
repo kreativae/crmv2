@@ -112,7 +112,7 @@ interface AIMessage {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { currentPage, setCurrentPage, leads, conversations, tasks, aiAssistantVisible, branding } = useStore();
+  const { currentPage, setCurrentPage, leads, conversations, tasks, aiAssistantVisible, branding, currentUser } = useStore();
   
   // Apply branding CSS variables on mount and when branding changes
   useEffect(() => {
@@ -721,7 +721,7 @@ export function Layout({ children }: LayoutProps) {
               >
                 <div className="relative">
                   <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm">
-                    AD
+                    {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                   </div>
                   <div className={cn(
                     'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white',
@@ -731,7 +731,7 @@ export function Layout({ children }: LayoutProps) {
                   )} />
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-[13px] font-semibold text-gray-800 leading-tight">Admin</p>
+                  <p className="text-[13px] font-semibold text-gray-800 leading-tight">{currentUser?.name || 'Usuário'}</p>
                   <p className={cn(
                     'text-[10px] leading-tight',
                     userStatus === 'online' && 'text-emerald-600',
@@ -769,11 +769,11 @@ export function Layout({ children }: LayoutProps) {
                       <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-br from-brand-50/50 to-violet-50/50">
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center text-white font-bold text-lg">
-                            AD
+                            {currentUser?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-800">Admin</p>
-                            <p className="text-xs text-gray-500">admin@nexcrm.com</p>
+                            <p className="font-semibold text-gray-800">{currentUser?.name || 'Usuário'}</p>
+                            <p className="text-xs text-gray-500">{currentUser?.email || ''}</p>
                             <p className={cn(
                               'text-[10px] mt-0.5',
                               userStatus === 'online' && 'text-emerald-600',
