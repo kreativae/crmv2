@@ -364,10 +364,32 @@ export function CRMPage() {
   };
 
   // CRUD handlers
+  const isValidObjectId = (id?: string) => !!id && /^[a-f\d]{24}$/i.test(id);
+
+  const buildLeadPayload = (data: Omit<Lead, '_id'>) => {
+    const payload: Record<string, unknown> = {
+      name: data.name,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      company: data.company || undefined,
+      source: data.source,
+      score: data.score,
+      value: data.value,
+      tags: data.tags,
+      notes: data.notes,
+      status: data.status,
+    };
+    if (isValidObjectId(data.pipelineId)) payload.pipelineId = data.pipelineId;
+    if (data.stageId) payload.stageId = data.stageId;
+    if (isValidObjectId(data.assignedTo as string)) payload.assignedTo = data.assignedTo;
+    return payload;
+  };
+
   const handleCreateLead = async () => {
     if (!validateForm()) return;
     try {
-      const created = await leadService.create({ ...formData, pipelineId: selectedPipelineId });
+      const payload = buildLeadPayload({ ...formData, pipelineId: isValidObjectId(selectedPipelineId) ? selectedPipelineId : undefined as unknown as string });
+      const created = await leadService.create(payload);
       addLead(created);
       setShowNewLead(false);
       setFormData({ ...emptyLead, pipelineId: selectedPipelineId });
@@ -382,7 +404,7 @@ export function CRMPage() {
   const handleEditLead = async () => {
     if (!editingLead || !validateForm()) return;
     try {
-      const updated = await leadService.update(editingLead, formData);
+      const updated = await leadService.update(editingLead, buildLeadPayload(formData));
       updateLead(editingLead, updated);
       setEditingLead(null);
       setFormErrors({});
