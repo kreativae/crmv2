@@ -25,47 +25,57 @@ export function App() {
   const didBootstrapAuthRef = useRef(false);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
 
+  const refreshAndGetMeWithTimeout = async (timeoutMs = 10000) => {
+    return Promise.race([
+      (async () => {
+        await authService.refreshToken();
+        return authService.getMe();
+      })(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('auth_bootstrap_timeout')), timeoutMs);
+      }),
+    ]);
+  };
+
   useEffect(() => {
     if (didBootstrapAuthRef.current) return;
     didBootstrapAuthRef.current = true;
 
     const bootstrapAuth = async () => {
-      const persisted = getPersistedSession();
-      if (persisted?.token && persisted?.user) {
-        setAccessToken(persisted.token);
-        login(persisted.user.email, '', persisted.user);
-        const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
-        if (savedPage && savedPage !== 'login') {
-          setCurrentPage(savedPage);
-        }
-        setAuthBootstrapping(false);
-
-        // Validate silently in background; do not force logout if network/cookie fails.
-        authService.refreshToken()
-          .then(() => authService.getMe())
-          .then((me) => {
-            if (me?.user) {
-              login(me.user.email, '', me.user);
-            }
-          })
-          .catch(() => {
-            // Keep local session; API interceptor will handle true expiration on requests.
-          });
-        return;
-      }
-
       try {
-        await authService.refreshToken();
-        const me = await authService.getMe();
+        const persisted = getPersistedSession();
+        if (persisted?.token && persisted?.user) {
+          setAccessToken(persisted.token);
+          login(persisted.user.email, '', persisted.user);
+          const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
+          if (savedPage && savedPage !== 'login') {
+            setCurrentPage(savedPage);
+          }
+
+          // Validate silently in background; do not force logout if network/cookie fails.
+          refreshAndGetMeWithTimeout()
+            .then((me) => {
+              if (me?.user) {
+                login(me.user.email, '', me.user);
+              }
+            })
+            .catch(() => {
+              // Keep local session; API interceptor will handle true expiration on requests.
+            });
+          return;
+        }
+
+        const me = await refreshAndGetMeWithTimeout();
         if (me?.user) {
           login(me.user.email, '', me.user);
           const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
           if (savedPage && savedPage !== 'login') {
             setCurrentPage(savedPage);
           }
-        } else {
-          logout();
+          return;
         }
+
+        logout();
       } catch {
         logout();
       } finally {

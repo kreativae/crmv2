@@ -72,7 +72,10 @@ export const authService = {
   },
 
   async refreshToken(): Promise<{ accessToken: string }> {
-    const API_URL = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:3001/api';
+    const API_URL = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL;
+    if (!API_URL) {
+      throw new Error('VITE_API_URL is required for auth refresh');
+    }
     // Use raw axios here to avoid interceptor loops when no session exists
     const response = await axios.post(`${API_URL}/auth/refresh`, {}, {
       withCredentials: true,

@@ -116,7 +116,7 @@ FRONTEND_URL=https://seu-dominio.vercel.app
 
 # Email (Resend)
 RESEND_API_KEY=re_xxxxx
-EMAIL_FROM=noreply@seudominio.com
+EMAIL_FROM=noreply@kreativ.ae
 
 # WhatsApp Cloud API
 WHATSAPP_TOKEN=EAAxxxxx
@@ -189,7 +189,7 @@ VITE_APP_NAME=NexCRM
 ### Configurar Domínio Personalizado
 
 1. No Vercel, vá em Settings → Domains
-2. Adicione seu domínio: `app.seudominio.com`
+2. Adicione seu domínio: `projeto.kreativ.ae`
 3. Configure DNS no seu registrador:
    - Tipo: CNAME
    - Nome: app

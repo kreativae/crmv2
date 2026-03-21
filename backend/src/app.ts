@@ -27,11 +27,8 @@ const app = express();
 // Security
 app.use(helmet());
 
-// CORS — allow configured FRONTEND_URL plus localhost origins in development
+// CORS — allow only configured frontend origins
 const allowedOrigins = Array.from(new Set([env.FRONTEND_URL, ...env.FRONTEND_URLS]));
-if (env.isDev) {
-  allowedOrigins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
-}
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, Postman, server-to-server)

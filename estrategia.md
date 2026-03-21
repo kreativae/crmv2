@@ -1364,9 +1364,9 @@ backend/
 
 ```env
 # App
-NODE_ENV=development
+NODE_ENV=production
 PORT=3001
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=https://projeto.kreativ.ae
 
 # Database
 DATABASE_URL=mongodb+srv://user:pass@cluster.mongodb.net/nexcrm

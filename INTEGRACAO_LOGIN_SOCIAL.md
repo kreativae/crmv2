@@ -34,8 +34,7 @@ O login social usa o protocolo **OAuth 2.0** para autenticar usuários através 
    - Application type: **Web application**
    - Name: **NexCRM**
    - Authorized redirect URIs:
-     - `http://localhost:3000/api/auth/callback/google` (dev)
-     - `https://seudominio.com/api/auth/callback/google` (prod)
+    - `https://projeto.kreativ.ae/api/auth/callback/google`
 6. Copie o **Client ID** e **Client Secret**
 
 **Passo 2: Variáveis de ambiente**
@@ -124,7 +123,7 @@ export async function GET(request: NextRequest) {
    - Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**
    - Redirect URI: 
      - Platform: **Web**
-     - URL: `http://localhost:3000/api/auth/callback/microsoft`
+    - URL: `https://projeto.kreativ.ae/api/auth/callback/microsoft`
 5. Após criar, vá em **Certificates & secrets**
 6. Clique **New client secret** e copie o valor
 7. Copie também o **Application (client) ID** da página Overview

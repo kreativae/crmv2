@@ -1,14 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// API Base URL - configure VITE_API_URL in .env for production
+// API Base URL - required in all environments to avoid accidental localhost usage
 // @ts-ignore - Vite env typing
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env?.VITE_API_URL;
 
-// Warn in production if using fallback URL
-// @ts-ignore - Vite env typing
-if (import.meta.env?.PROD && !import.meta.env?.VITE_API_URL) {
-  // This will be visible in browser console — intentional for debugging misconfigured deploys
-  console.warn('[NexCRM] VITE_API_URL not set — API calls will fail in production');
+if (!API_URL) {
+  throw new Error('[NexCRM] VITE_API_URL is required and must point to production API');
 }
 
 // Create axios instance

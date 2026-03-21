@@ -32,14 +32,14 @@ export const env = {
   // Server
   NODE_ENV,
   PORT: parseInt(process.env.PORT || '3001', 10),
-  API_URL: requireEnv('API_URL', 'http://localhost:3001'),
-  FRONTEND_URL: requireEnv('FRONTEND_URL', 'http://localhost:5173'),
+  API_URL: requireEnv('API_URL'),
+  FRONTEND_URL: requireEnv('FRONTEND_URL'),
   FRONTEND_URLS: process.env.FRONTEND_URLS
     ? process.env.FRONTEND_URLS.split(',').map((url) => url.trim()).filter(Boolean)
     : [],
   
   // MongoDB
-  MONGODB_URI: requireEnv('MONGODB_URI', 'mongodb://localhost:27017/nexcrm'),
+  MONGODB_URI: requireEnv('MONGODB_URI'),
   
   // Redis
   REDIS_URL: process.env.REDIS_URL,
