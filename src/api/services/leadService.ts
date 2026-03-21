@@ -44,17 +44,17 @@ export const leadService = {
 
   async getById(id: string): Promise<Lead> {
     const response = await api.get(`/leads/${id}`);
-    return response.data.data;
+    return response.data.lead;
   },
 
   async create(lead: Partial<Lead>): Promise<Lead> {
     const response = await api.post('/leads', lead);
-    return response.data.data;
+    return response.data.lead;
   },
 
   async update(id: string, updates: Partial<Lead>): Promise<Lead> {
     const response = await api.put(`/leads/${id}`, updates);
-    return response.data.data;
+    return response.data.lead;
   },
 
   async delete(id: string): Promise<void> {
@@ -71,12 +71,12 @@ export const leadService = {
 
   async moveToStage(id: string, stageId: string): Promise<Lead> {
     const response = await api.put(`/leads/${id}/stage`, { stageId });
-    return response.data.data;
+    return response.data.lead;
   },
 
   async updateScore(id: string, score: number): Promise<Lead> {
     const response = await api.put(`/leads/${id}/score`, { score });
-    return response.data.data;
+    return response.data.lead;
   },
 
   async getStats(): Promise<LeadStats> {
