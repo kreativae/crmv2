@@ -14,6 +14,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { AIInsightsPage } from './pages/AIInsightsPage';
 import { AgendaPage } from './pages/AgendaPage';
 import { initEmergencyUnblock, forceCleanup } from './utils/fixClickBlock';
+import { logger } from './utils/logger';
 
 export function App() {
   const { currentPage, isAuthenticated } = useStore();
@@ -26,7 +27,7 @@ export function App() {
     // Listen for emergency cleanup event
     const handleEmergencyCleanup = () => {
       // Force close any open modals/panels by resetting store state
-      console.log('[NexCRM] Emergency cleanup - resetting UI state');
+      logger.log('[NexCRM] Emergency cleanup - resetting UI state');
     };
     
     window.addEventListener('nexcrm:emergency-cleanup', handleEmergencyCleanup);
@@ -73,7 +74,7 @@ export function App() {
         if (parseFloat(opacity) < 0.1) {
           e.stopPropagation();
           target.remove();
-          console.log('[NexCRM] Removed invisible blocking overlay');
+          logger.log('[NexCRM] Removed invisible blocking overlay');
         }
       }
 
@@ -81,7 +82,7 @@ export function App() {
       if (now - lastClickTime < 500) {
         clickAttempts++;
         if (clickAttempts >= 5) {
-          console.log('[NexCRM] Detected stuck UI, running cleanup');
+          logger.log('[NexCRM] Detected stuck UI, running cleanup');
           forceCleanup();
           clickAttempts = 0;
         }

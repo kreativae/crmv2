@@ -1,23 +1,47 @@
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 dotenv.config();
+
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const isProd = NODE_ENV === 'production';
+
+// In production, require critical environment variables
+function requireEnv(name: string, fallback?: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (isProd) {
+    throw new Error(`[FATAL] Missing required environment variable: ${name}`);
+  }
+  return fallback || '';
+}
+
+// Generate a random secret for development (different each restart)
+function devSecret(name: string): string {
+  const value = process.env[name];
+  if (value && value.length > 0) return value as string;
+  if (isProd) {
+    throw new Error(`[FATAL] Missing required environment variable: ${name}. Never use default secrets in production.`);
+  }
+  return crypto.randomBytes(64).toString('hex');
+}
 
 export const env = {
   // Server
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV,
   PORT: parseInt(process.env.PORT || '3001', 10),
-  API_URL: process.env.API_URL || 'http://localhost:3001',
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  API_URL: requireEnv('API_URL', 'http://localhost:3001'),
+  FRONTEND_URL: requireEnv('FRONTEND_URL', 'http://localhost:5173'),
   
   // MongoDB
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/nexcrm',
+  MONGODB_URI: requireEnv('MONGODB_URI', 'mongodb://localhost:27017/nexcrm'),
   
   // Redis
   REDIS_URL: process.env.REDIS_URL,
   
-  // JWT
-  JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-in-production',
+  // JWT — never use static defaults; dev gets random per-restart, prod must set env vars
+  JWT_SECRET: devSecret('JWT_SECRET'),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '15m',
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
+  JWT_REFRESH_SECRET: devSecret('JWT_REFRESH_SECRET'),
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   
   // Email
@@ -65,6 +89,6 @@ export const env = {
   APPLE_PRIVATE_KEY: process.env.APPLE_PRIVATE_KEY,
   
   // Helpers
-  isDev: process.env.NODE_ENV === 'development',
-  isProd: process.env.NODE_ENV === 'production',
+  isDev: NODE_ENV === 'development',
+  isProd,
 };

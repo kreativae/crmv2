@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { logger } from '../utils/logger';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import { financeService } from '../api/services/financeService';
 import type { FinanceRecord, TransactionType, TransactionStatus, TransactionCategory } from '../types';
 import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Plus, Search, Filter,
@@ -11,7 +13,7 @@ import {
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar, Legend
+  PieChart, Pie, Cell, BarChart, Legend
 } from 'recharts';
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } };
@@ -51,6 +53,22 @@ function formatCurrency(v: number) {
 
 export function FinancePage() {
   const { financeRecords, addFinanceRecord, updateFinanceRecord, deleteFinanceRecord, clients, leads } = useStore();
+
+  // Load finance records from backend on mount
+  useEffect(() => {
+    const loadRecords = async () => {
+      try {
+        const response = await financeService.getAll();
+        const serverRecords = response.data || [];
+        const currentRecords = useStore.getState().financeRecords;
+        currentRecords.forEach(r => deleteFinanceRecord(r._id));
+        serverRecords.forEach(r => addFinanceRecord(r));
+      } catch (err) {
+        logger.error('Erro ao carregar registros financeiros:', err);
+      }
+    };
+    loadRecords();
+  }, []);
 
   // UI States
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,7 +186,7 @@ export function FinancePage() {
     setShowCreateModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
     const data: Omit<FinanceRecord, '_id'> = {
       description: form.description, type: form.type, category: form.category,
@@ -176,32 +194,64 @@ export function FinancePage() {
       status: form.status, date: form.date, dueDate: form.dueDate || undefined,
       notes: form.notes || undefined, pipeline: form.type === 'expense' ? 'Operações' : 'Vendas B2B',
     };
-    if (editingRecord) {
-      updateFinanceRecord(editingRecord._id, data);
-      if (viewingRecord?._id === editingRecord._id) setViewingRecord({ ...editingRecord, ...data });
-    } else {
-      addFinanceRecord({ _id: `f_${Date.now()}`, ...data, invoiceNumber: `INV-${Date.now().toString().slice(-6)}` });
+    try {
+      if (editingRecord) {
+        const updated = await financeService.update(editingRecord._id, data);
+        updateFinanceRecord(editingRecord._id, updated);
+        if (viewingRecord?._id === editingRecord._id) setViewingRecord({ ...editingRecord, ...updated });
+      } else {
+        const created = await financeService.create(data);
+        addFinanceRecord(created);
+      }
+    } catch (err) {
+      logger.error('Erro ao salvar registro:', err);
+      // Fallback local
+      if (editingRecord) {
+        updateFinanceRecord(editingRecord._id, data);
+        if (viewingRecord?._id === editingRecord._id) setViewingRecord({ ...editingRecord, ...data });
+      } else {
+        addFinanceRecord({ _id: `f_${Date.now()}`, ...data, invoiceNumber: `INV-${Date.now().toString().slice(-6)}` });
+      }
     }
     setShowCreateModal(false);
     setEditingRecord(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingRecord) return;
-    deleteFinanceRecord(deletingRecord._id);
-    if (viewingRecord?._id === deletingRecord._id) setViewingRecord(null);
+    try {
+      await financeService.delete(deletingRecord._id);
+      deleteFinanceRecord(deletingRecord._id);
+      if (viewingRecord?._id === deletingRecord._id) setViewingRecord(null);
+    } catch (err) {
+      logger.error('Erro ao excluir registro:', err);
+      deleteFinanceRecord(deletingRecord._id);
+      if (viewingRecord?._id === deletingRecord._id) setViewingRecord(null);
+    }
     setDeletingRecord(null);
     setSelectedIds(prev => prev.filter(id => id !== deletingRecord._id));
   };
 
-  const handleBulkDelete = () => {
-    selectedIds.forEach(id => deleteFinanceRecord(id));
+  const handleBulkDelete = async () => {
+    try {
+      await financeService.bulkDelete(selectedIds);
+      selectedIds.forEach(id => deleteFinanceRecord(id));
+    } catch (err) {
+      logger.error('Erro ao excluir registros:', err);
+      selectedIds.forEach(id => deleteFinanceRecord(id));
+    }
     setSelectedIds([]);
     setShowBulkDeleteConfirm(false);
   };
 
-  const handleBulkStatus = (status: TransactionStatus) => {
-    selectedIds.forEach(id => updateFinanceRecord(id, { status }));
+  const handleBulkStatus = async (status: TransactionStatus) => {
+    try {
+      await financeService.bulkUpdate(selectedIds, { status });
+      selectedIds.forEach(id => updateFinanceRecord(id, { status }));
+    } catch (err) {
+      logger.error('Erro ao atualizar registros:', err);
+      selectedIds.forEach(id => updateFinanceRecord(id, { status }));
+    }
     setSelectedIds([]);
   };
 

@@ -136,7 +136,7 @@ router.post('/', async (req, res, next) => {
     const transaction = new Transaction({
       ...req.body,
       organizationId: req.organizationId,
-      createdBy: req.user._id,
+      createdBy: req.user!._id,
     });
     
     await transaction.save();
@@ -245,7 +245,7 @@ router.get('/export/csv', async (req, res, next) => {
     const csv = [
       'Data,Descrição,Tipo,Categoria,Valor,Status,Cliente',
       ...transactions.map(t => 
-        `${t.date.toISOString().split('T')[0]},${t.description},${t.type},${t.category},${t.value},${t.status},${t.client || ''}`
+        `${t.date.toISOString().split('T')[0]},${t.description},${t.type},${t.category},${t.value},${t.status},${(t as any).clientId || ''}`
       )
     ].join('\n');
     

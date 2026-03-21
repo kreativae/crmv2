@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { User, IUser } from '../models/User.js';
 import { Organization, IOrganization } from '../models/Organization.js';
+import { logger } from '../utils/logger.js';
 
 // Extend Express Request
 declare global {
@@ -69,7 +70,7 @@ export const authenticate = async (
     
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    logger.error('Auth middleware error:', error);
     res.status(500).json({ error: 'Erro interno de autenticação' });
   }
 };

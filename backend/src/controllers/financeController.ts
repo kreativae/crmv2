@@ -24,7 +24,8 @@ export const financeController = {
     res.status(201).json({ transaction });
   }),
 
-  // GET /api/finance/summarygetSummary: asyncHandler(async (req: Request, res: Response) => {
+  // GET /api/finance/summary
+  getSummary: asyncHandler(async (req: Request, res: Response) => {
     const summary = await Transaction.aggregate([
       { $match: { organizationId: req.organizationId } },
       {

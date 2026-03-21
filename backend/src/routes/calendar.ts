@@ -102,7 +102,7 @@ router.post('/', async (req, res, next) => {
     const event = new CalendarEvent({
       ...req.body,
       organizationId: req.organizationId,
-      createdBy: req.user._id,
+      createdBy: req.user!._id,
     });
     
     await event.save();

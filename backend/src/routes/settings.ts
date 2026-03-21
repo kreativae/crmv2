@@ -36,7 +36,7 @@ router.put('/organization', authorize('owner', 'admin'), async (req, res, next) 
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'organization.update',
       resource: 'organization',
       resourceId: req.organizationId,
@@ -104,7 +104,7 @@ router.post('/users/invite', authorize('owner', 'admin'), async (req, res, next)
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'user.invite',
       resource: 'user',
       resourceId: user._id,
@@ -146,7 +146,7 @@ router.put('/users/:id', authorize('owner', 'admin'), async (req, res, next) => 
 router.delete('/users/:id', authorize('owner'), async (req, res, next) => {
   try {
     // Prevent deleting self
-    if (req.params.id === req.user._id.toString()) {
+    if (req.params.id === req.user!._id.toString()) {
       return res.status(400).json({ error: 'Não é possível excluir seu próprio usuário' });
     }
     
@@ -161,7 +161,7 @@ router.delete('/users/:id', authorize('owner'), async (req, res, next) => {
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'user.delete',
       resource: 'user',
       resourceId: req.params.id,
@@ -186,7 +186,7 @@ router.put('/users/:id/toggle', authorize('owner', 'admin'), async (req, res, ne
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
     
-    user.active = !user.active;
+    user.status = user.status === 'active' ? 'inactive' : 'active';
     await user.save();
     
     res.json({ ...user.toObject(), password: undefined });
@@ -215,15 +215,16 @@ router.put('/integrations/:id', authorize('owner', 'admin'), async (req, res, ne
       return res.status(404).json({ error: 'Organização não encontrada' });
     }
     
-    const integrationIndex = org.integrations.findIndex(
+    const orgAny = org as any;
+    const integrationIndex = orgAny.integrations.findIndex(
       (i: any) => i.id === req.params.id
     );
     
     if (integrationIndex === -1) {
-      org.integrations.push({ id: req.params.id, ...req.body });
+      orgAny.integrations.push({ id: req.params.id, ...req.body });
     } else {
-      org.integrations[integrationIndex] = { 
-        ...org.integrations[integrationIndex], 
+      orgAny.integrations[integrationIndex] = { 
+        ...orgAny.integrations[integrationIndex], 
         ...req.body 
       };
     }
@@ -232,7 +233,7 @@ router.put('/integrations/:id', authorize('owner', 'admin'), async (req, res, ne
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'integration.update',
       resource: 'integration',
       resourceId: req.params.id,
@@ -253,7 +254,7 @@ router.delete('/integrations/:id', authorize('owner', 'admin'), async (req, res,
       return res.status(404).json({ error: 'Organização não encontrada' });
     }
     
-    org.integrations = org.integrations.filter((i: any) => i.id !== req.params.id);
+    org.integrations = (org as any).integrations.filter((i: any) => i.id !== req.params.id);
     await org.save();
     
     res.json({ message: 'Integração desconectada' });
@@ -357,7 +358,7 @@ router.put('/branding', authorize('owner', 'admin'), async (req, res, next) => {
 router.get('/api-keys', authorize('owner', 'admin'), async (req, res, next) => {
   try {
     const org = await Organization.findById(req.organizationId);
-    res.json(org?.apiKeys || []);
+    res.json((org as any)?.apiKeys || []);
   } catch (error) {
     next(error);
   }

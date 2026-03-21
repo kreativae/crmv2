@@ -1,19 +1,35 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// API Base URL - configure in .env
+// API Base URL - configure VITE_API_URL in .env for production
 // @ts-ignore - Vite env typing
 const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001/api';
+
+// Warn in production if using fallback URL
+// @ts-ignore - Vite env typing
+if (import.meta.env?.PROD && !import.meta.env?.VITE_API_URL) {
+  // This will be visible in browser console — intentional for debugging misconfigured deploys
+  console.warn('[NexCRM] VITE_API_URL not set — API calls will fail in production');
+}
 
 // Create axios instance
 export const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
+  withCredentials: true, // Send cookies (httpOnly refresh token)
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Token management
+// Token management — only accessToken in memory, refreshToken in httpOnly cookie
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+
+export const getAccessToken = () => accessToken;
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value?: unknown) => void;
@@ -31,12 +47,11 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor - add auth token
+// Request interceptor - add auth token from memory
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken && config.headers) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
@@ -67,37 +82,25 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (!refreshToken) {
-        // No refresh token - logout
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        window.location.href = '/';
-        return Promise.reject(error);
-      }
-
       try {
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
+        // Refresh token is sent automatically via httpOnly cookie (withCredentials: true)
+        const response = await axios.post(`${API_URL}/auth/refresh`, {}, {
+          withCredentials: true,
         });
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        const { accessToken: newAccessToken } = response.data;
 
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-
-        processQueue(null, accessToken);
+        setAccessToken(newAccessToken);
+        processQueue(null, newAccessToken);
 
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
 
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError as Error, null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        setAccessToken(null);
         window.location.href = '/';
         return Promise.reject(refreshError);
       } finally {

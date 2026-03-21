@@ -76,7 +76,7 @@ router.post('/', async (req, res, next) => {
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'client.create',
       resource: 'client',
       resourceId: client._id,
@@ -105,7 +105,7 @@ router.put('/:id', async (req, res, next) => {
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'client.update',
       resource: 'client',
       resourceId: client._id,
@@ -133,7 +133,7 @@ router.delete('/:id', async (req, res, next) => {
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'client.delete',
       resource: 'client',
       resourceId: client._id,

@@ -2,16 +2,17 @@ import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { authRateLimiter } from '../middleware/rateLimit';
 import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from '../utils/validators';
 
 const router = Router();
 
-// Public routes
-router.post('/register', validate(registerSchema), authController.register);
-router.post('/login', validate(loginSchema), authController.login);
-router.post('/refresh', authController.refreshToken);
-router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
-router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+// Public routes — with auth-specific rate limiter (10 attempts / 15min)
+router.post('/register', authRateLimiter, validate(registerSchema), authController.register);
+router.post('/login', authRateLimiter, validate(loginSchema), authController.login);
+router.post('/refresh', authRateLimiter, authController.refreshToken);
+router.post('/forgot-password', authRateLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/reset-password', authRateLimiter, validate(resetPasswordSchema), authController.resetPassword);
 
 // Protected routes
 router.get('/me', authenticate, authController.getMe);

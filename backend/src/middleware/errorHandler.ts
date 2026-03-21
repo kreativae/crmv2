@@ -80,15 +80,21 @@ export const errorHandler = (
   }
 
   // Send response
-  res.status(statusCode).json({
+  const responseBody: Record<string, unknown> = {
     error: message,
     code,
-    ...(details && { details }),
-    ...(env.isDev && {
-      stack: err.stack,
-      originalError: err.message,
-    }),
-  });
+  };
+
+  if (details) {
+    responseBody.details = details;
+  }
+
+  if (env.isDev) {
+    responseBody.stack = err.stack;
+    responseBody.originalError = err.message;
+  }
+
+  res.status(statusCode).json(responseBody);
 };
 
 // Not found handler

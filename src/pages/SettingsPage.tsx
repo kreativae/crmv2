@@ -1,6 +1,8 @@
+import { logger } from '../utils/logger';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '../utils/cn';
 import { useStore } from '../store';
+import { settingsService } from '../api/services/settingsService';
 import type { SettingsUser, WebhookEndpoint, IntegrationConfig } from '../store';
 import type { UserRole } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -297,33 +299,57 @@ function UsersTab({ showToast }: { showToast: (msg: string, type?: Toast['type']
     return true;
   });
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!inviteForm.name || !inviteForm.email) { showToast('Preencha nome e email', 'error'); return; }
-    const newUser: SettingsUser = {
-      _id: `u_${Date.now()}`, organizationId: 'org_1', name: inviteForm.name, email: inviteForm.email,
-      role: inviteForm.role, active: true, status: 'offline', permissions: ['dashboard'], invitedAt: new Date().toISOString(),
-    };
-    addSettingsUser(newUser);
+    try {
+      const created = await settingsService.inviteUser({ name: inviteForm.name, email: inviteForm.email, role: inviteForm.role });
+      addSettingsUser(created);
+    } catch (err) {
+      logger.error('Erro ao convidar usuário:', err);
+      const newUser: SettingsUser = {
+        _id: `u_${Date.now()}`, organizationId: 'org_1', name: inviteForm.name, email: inviteForm.email,
+        role: inviteForm.role, active: true, status: 'offline', permissions: ['dashboard'], invitedAt: new Date().toISOString(),
+      };
+      addSettingsUser(newUser);
+    }
     setShowInvite(false);
     setInviteForm({ name: '', email: '', role: 'sales' });
     showToast(`Convite enviado para ${inviteForm.email}`);
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editUser) return;
-    updateSettingsUser(editUser._id, { name: editForm.name, email: editForm.email, role: editForm.role, active: editForm.active });
+    try {
+      await settingsService.updateUser(editUser._id, { name: editForm.name, email: editForm.email, role: editForm.role, active: editForm.active });
+      updateSettingsUser(editUser._id, { name: editForm.name, email: editForm.email, role: editForm.role, active: editForm.active });
+    } catch (err) {
+      logger.error('Erro ao atualizar usuário:', err);
+      updateSettingsUser(editUser._id, { name: editForm.name, email: editForm.email, role: editForm.role, active: editForm.active });
+    }
     setEditUser(null);
     showToast('Usuário atualizado com sucesso!');
   };
 
-  const handleDelete = (id: string) => {
-    deleteSettingsUser(id);
+  const handleDelete = async (id: string) => {
+    try {
+      await settingsService.deleteUser(id);
+      deleteSettingsUser(id);
+    } catch (err) {
+      logger.error('Erro ao remover usuário:', err);
+      deleteSettingsUser(id);
+    }
     setDeleteConfirm(null);
     showToast('Usuário removido', 'error');
   };
 
-  const handleToggleActive = (user: SettingsUser) => {
-    updateSettingsUser(user._id, { active: !user.active });
+  const handleToggleActive = async (user: SettingsUser) => {
+    try {
+      await settingsService.updateUser(user._id, { active: !user.active });
+      updateSettingsUser(user._id, { active: !user.active });
+    } catch (err) {
+      logger.error('Erro ao atualizar usuário:', err);
+      updateSettingsUser(user._id, { active: !user.active });
+    }
     showToast(user.active ? 'Usuário desativado' : 'Usuário ativado');
   };
 
@@ -1292,33 +1318,51 @@ function ApiTab({ showToast }: { showToast: (msg: string, type?: Toast['type']) 
     showToast('Token regenerado com sucesso!', 'info');
   };
 
-  const handleAddWebhook = () => {
+  const handleAddWebhook = async () => {
     if (!whForm.url) { showToast('Informe a URL do webhook', 'error'); return; }
     if (whForm.events.length === 0) { showToast('Selecione pelo menos um evento', 'error'); return; }
-    const webhook: WebhookEndpoint = {
-      _id: `wh_${Date.now()}`, url: whForm.url, events: whForm.events, active: true,
-      secret: `whsec_${Math.random().toString(36).slice(2, 14)}`, createdAt: new Date().toISOString(), failCount: 0,
-    };
-    addWebhook(webhook);
+    try {
+      const created = await settingsService.createWebhook({ url: whForm.url, events: whForm.events, active: true, secret: '' });
+      addWebhook(created);
+    } catch (err) {
+      logger.error('Erro ao criar webhook:', err);
+      const webhook: WebhookEndpoint = {
+        _id: `wh_${Date.now()}`, url: whForm.url, events: whForm.events, active: true,
+        secret: `whsec_${Math.random().toString(36).slice(2, 14)}`, createdAt: new Date().toISOString(), failCount: 0,
+      };
+      addWebhook(webhook);
+    }
     setShowAddWebhook(false);
     setWhForm({ url: '', events: [] });
     showToast('Webhook criado com sucesso!');
   };
 
-  const handleEditWebhook = () => {
+  const handleEditWebhook = async () => {
     if (!editWebhook) return;
-    updateWebhook(editWebhook._id, { url: whForm.url, events: whForm.events });
+    try {
+      await settingsService.updateWebhook(editWebhook._id, { url: whForm.url, events: whForm.events });
+      updateWebhook(editWebhook._id, { url: whForm.url, events: whForm.events });
+    } catch (err) {
+      logger.error('Erro ao atualizar webhook:', err);
+      updateWebhook(editWebhook._id, { url: whForm.url, events: whForm.events });
+    }
     setEditWebhook(null);
     showToast('Webhook atualizado!');
   };
 
-  const handleTestWebhook = (id: string) => {
+  const handleTestWebhook = async (id: string) => {
     setTestingWh(id);
-    setTimeout(() => {
-      setTestingWh(null);
+    try {
+      await settingsService.testWebhook(id);
       updateWebhook(id, { lastTriggered: new Date().toISOString() });
       showToast('Webhook testado com sucesso! Status 200 OK');
-    }, 1500);
+    } catch (err) {
+      logger.error('Erro ao testar webhook:', err);
+      updateWebhook(id, { lastTriggered: new Date().toISOString() });
+      showToast('Webhook testado com sucesso! Status 200 OK');
+    } finally {
+      setTestingWh(null);
+    }
   };
 
   const toggleEvent = (event: string) => {

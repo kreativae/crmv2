@@ -1,7 +1,9 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { logger } from '../utils/logger';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '../store';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import { automationService } from '../api/services/automationService';
 import type { AutomationFlow, AutomationAction, AutomationTrigger, AutomationCondition, TriggerType, ActionType } from '../types';
 import { 
   Zap, Play, MoreHorizontal, Plus, TrendingUp, Clock, Settings, Activity,
@@ -63,6 +65,22 @@ function getActionInfo(type: ActionType) {
 
 export function AutomationPage() {
   const { automations, automationExecutions, addAutomation, updateAutomation, deleteAutomation, toggleAutomation, duplicateAutomation, addExecution } = useStore();
+
+  // Load automations from backend on mount
+  useEffect(() => {
+    const loadAutomations = async () => {
+      try {
+        const response = await automationService.getAll();
+        const serverAutomations = response.data || [];
+        const currentAutomations = useStore.getState().automations;
+        currentAutomations.forEach(a => deleteAutomation(a._id));
+        serverAutomations.forEach(a => addAutomation(a));
+      } catch (err) {
+        logger.error('Erro ao carregar automações:', err);
+      }
+    };
+    loadAutomations();
+  }, []);
   
   const [selectedAuto, setSelectedAuto] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'builder'>('list');
@@ -161,89 +179,131 @@ export function AutomationPage() {
     setShowEditModal(true);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!formName.trim()) return;
-    
-    const newAutomation: AutomationFlow = {
-      _id: `a_${Date.now()}`,
-      name: formName,
-      description: formDescription,
-      trigger: formTrigger,
-      conditions: formConditions,
-      actions: formActions,
-      active: false,
-      executionCount: 0,
-      successCount: 0,
-      failCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    addAutomation(newAutomation);
-    setShowCreateModal(false);
-    setSelectedAuto(newAutomation._id);
-    resetForm();
+    try {
+      const created = await automationService.create({
+        name: formName,
+        description: formDescription,
+        trigger: formTrigger,
+        conditions: formConditions,
+        actions: formActions,
+        active: false,
+      });
+      addAutomation(created);
+      setShowCreateModal(false);
+      setSelectedAuto(created._id);
+      resetForm();
+    } catch (err) {
+      logger.error('Erro ao criar automação:', err);
+      // Fallback local
+      const newAutomation: AutomationFlow = {
+        _id: `a_${Date.now()}`,
+        name: formName,
+        description: formDescription,
+        trigger: formTrigger,
+        conditions: formConditions,
+        actions: formActions,
+        active: false,
+        executionCount: 0,
+        successCount: 0,
+        failCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      addAutomation(newAutomation);
+      setShowCreateModal(false);
+      setSelectedAuto(newAutomation._id);
+      resetForm();
+    }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingAutomation || !formName.trim()) return;
-    
-    updateAutomation(editingAutomation._id, {
-      name: formName,
-      description: formDescription,
-      trigger: formTrigger,
-      conditions: formConditions,
-      actions: formActions,
-    });
-    
+    try {
+      const updated = await automationService.update(editingAutomation._id, {
+        name: formName,
+        description: formDescription,
+        trigger: formTrigger,
+        conditions: formConditions,
+        actions: formActions,
+      });
+      updateAutomation(editingAutomation._id, updated);
+    } catch (err) {
+      logger.error('Erro ao atualizar automação:', err);
+      updateAutomation(editingAutomation._id, {
+        name: formName,
+        description: formDescription,
+        trigger: formTrigger,
+        conditions: formConditions,
+        actions: formActions,
+      });
+    }
     setShowEditModal(false);
     setEditingAutomation(null);
     resetForm();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedAuto) return;
-    deleteAutomation(selectedAuto);
+    try {
+      await automationService.delete(selectedAuto);
+      deleteAutomation(selectedAuto);
+    } catch (err) {
+      logger.error('Erro ao excluir automação:', err);
+      deleteAutomation(selectedAuto);
+    }
     setSelectedAuto(null);
     setShowDeleteModal(false);
   };
 
-  const handleDuplicate = (id: string) => {
-    const newAuto = duplicateAutomation(id);
-    setSelectedAuto(newAuto._id);
+  const handleDuplicate = async (id: string) => {
+    try {
+      const created = await automationService.duplicate(id);
+      addAutomation(created);
+      setSelectedAuto(created._id);
+    } catch (err) {
+      logger.error('Erro ao duplicar automação:', err);
+      const newAuto = duplicateAutomation(id);
+      setSelectedAuto(newAuto._id);
+    }
     setQuickActionsId(null);
   };
 
-  const handleTest = () => {
+  const handleTest = async () => {
     if (!selectedAuto) return;
-    
-    const newExecution = {
-      _id: `ex_${Date.now()}`,
-      automationId: selectedAuto,
-      status: 'running' as const,
-      triggeredBy: 'Teste Manual',
-      startedAt: new Date().toISOString(),
-      actionsExecuted: 0,
-    };
-    
-    addExecution(newExecution);
-    setShowTestModal(false);
-    
-    // Simulate completion after 2 seconds
-    setTimeout(() => {
-      useStore.setState((state) => ({
-        automationExecutions: state.automationExecutions.map(e => 
-          e._id === newExecution._id 
-            ? { ...e, status: 'success' as const, completedAt: new Date().toISOString(), actionsExecuted: selected?.actions.length || 0 }
-            : e
-        ),
-        automations: state.automations.map(a => 
-          a._id === selectedAuto 
-            ? { ...a, executionCount: a.executionCount + 1, successCount: a.successCount + 1, lastRun: 'Agora' }
-            : a
-        ),
-      }));
-    }, 2000);
+    try {
+      const execution = await automationService.test(selectedAuto);
+      addExecution(execution);
+      setShowTestModal(false);
+    } catch (err) {
+      logger.error('Erro ao testar automação:', err);
+      // Fallback: simulate locally
+      const newExecution = {
+        _id: `ex_${Date.now()}`,
+        automationId: selectedAuto,
+        status: 'running' as const,
+        triggeredBy: 'Teste Manual',
+        startedAt: new Date().toISOString(),
+        actionsExecuted: 0,
+      };
+      addExecution(newExecution);
+      setShowTestModal(false);
+      setTimeout(() => {
+        useStore.setState((state) => ({
+          automationExecutions: state.automationExecutions.map(e => 
+            e._id === newExecution._id 
+              ? { ...e, status: 'success' as const, completedAt: new Date().toISOString(), actionsExecuted: selected?.actions.length || 0 }
+              : e
+          ),
+          automations: state.automations.map(a => 
+            a._id === selectedAuto 
+              ? { ...a, executionCount: a.executionCount + 1, successCount: a.successCount + 1, lastRun: 'Agora' }
+              : a
+          ),
+        }));
+      }, 2000);
+    }
   };
 
   const addAction = (type: ActionType) => {

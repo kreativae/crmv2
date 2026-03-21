@@ -56,7 +56,7 @@ router.post('/whatsapp', async (req, res) => {
         }
 
         // Add message
-        conversation.messages.push({
+        (conversation as any).messages.push({
           sender: 'client',
           senderName: contact?.profile?.name || phoneNumber,
           content: messageContent,
@@ -132,7 +132,7 @@ router.post('/instagram', async (req, res) => {
         }
 
         // Add message
-        conversation.messages.push({
+        (conversation as any).messages.push({
           sender: 'client',
           content: message.text || '[Mídia]',
           type: message.attachments ? 'attachment' : 'text',
@@ -191,7 +191,7 @@ router.post('/telegram', async (req, res) => {
     }
 
     // Add message
-    conversation.messages.push({
+    (conversation as any).messages.push({
       sender: 'client',
       senderName,
       content: text,

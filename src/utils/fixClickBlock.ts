@@ -4,6 +4,7 @@
  * Este utilitário limpa overlays que podem ter ficado no DOM
  * após animações de fechamento incompletas.
  */
+import { logger } from './logger';
 
 // Lista de classes que identificam overlays (para referência)
 // '.fixed.inset-0', '[class*="backdrop"]', '[class*="z-40"]', etc.
@@ -68,7 +69,7 @@ export function initEmergencyUnblock(): void {
       
       // Se ESC for pressionado 3 vezes em 1 segundo, força limpeza
       if (escPressCount >= 3) {
-        console.log('[NexCRM] Emergency cleanup triggered');
+        logger.log('[NexCRM] Emergency cleanup triggered');
         forceCleanup();
         escPressCount = 0;
       }
@@ -84,7 +85,7 @@ export function forceCleanup(): void {
   document.querySelectorAll('.fixed.inset-0').forEach(el => {
     const zIndex = window.getComputedStyle(el).zIndex;
     if (parseInt(zIndex) >= 40) {
-      console.log('[NexCRM] Removing stuck overlay:', el);
+      logger.log('[NexCRM] Removing stuck overlay:', el);
       el.remove();
     }
   });

@@ -103,7 +103,7 @@ router.post('/', async (req, res, next) => {
     const conversation = new Conversation({
       ...req.body,
       organizationId: req.organizationId,
-      assignedTo: req.user._id,
+      assignedTo: req.user!._id,
     });
     
     await conversation.save();
@@ -128,7 +128,7 @@ router.post('/:id/messages', async (req, res, next) => {
     
     const message = {
       sender: 'agent',
-      senderName: req.user.name,
+      senderName: req.user!.name,
       content: req.body.content,
       type: req.body.type || 'text',
       attachments: req.body.attachments || [],
@@ -136,10 +136,8 @@ router.post('/:id/messages', async (req, res, next) => {
       read: false,
     };
     
-    conversation.messages.push(message);
+    (conversation as any).messages.push(message);
     conversation.lastMessage = req.body.content;
-    conversation.updatedAt = new Date();
-    
     await conversation.save();
     
     // TODO: Send via channel API (WhatsApp, Instagram, etc.)
@@ -164,10 +162,11 @@ router.get('/:id/messages', async (req, res, next) => {
       return res.status(404).json({ error: 'Conversa não encontrada' });
     }
     
-    const total = conversation.messages.length;
+    const convAny = conversation as any;
+    const total = convAny.messages?.length ?? 0;
     const start = Math.max(0, total - Number(page) * Number(limit));
     const end = total - (Number(page) - 1) * Number(limit);
-    const messages = conversation.messages.slice(start, end);
+    const messages = convAny.messages?.slice(start, end) ?? [];
     
     res.json({
       data: messages,
@@ -219,7 +218,7 @@ router.put('/:id/transfer', async (req, res, next) => {
     }
     
     // Add system message about transfer
-    conversation.messages.push({
+    (conversation as any).messages?.push({
       sender: 'system',
       content: `Conversa transferida${note ? `: ${note}` : ''}`,
       type: 'system',
@@ -227,7 +226,6 @@ router.put('/:id/transfer', async (req, res, next) => {
     });
     
     conversation.assignedTo = toUserId;
-    conversation.updatedAt = new Date();
     
     await conversation.save();
     await conversation.populate('assignedTo', 'name email avatar');

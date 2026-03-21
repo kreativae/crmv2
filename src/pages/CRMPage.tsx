@@ -1,5 +1,7 @@
+import { logger } from '../utils/logger';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '../store';
+import { leadService } from '../api/services/leadService';
 // Default pipelines (empty until loaded from API)
 const defaultPipelines = [
   {
@@ -131,9 +133,29 @@ export function CRMPage() {
   // Local pipelines state (so we can add/edit/delete stages)
   const [localPipelines, setLocalPipelines] = useState(defaultPipelines);
 
+  const [_loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const pipeline = localPipelines.find(p => p._id === selectedPipelineId) || localPipelines[0];
+
+  // Load leads from backend on mount
+  useEffect(() => {
+    const loadLeads = async () => {
+      try {
+        setLoading(true);
+        const response = await leadService.getAll();
+        const serverLeads = response.data || [];
+        const currentLeads = useStore.getState().leads;
+        currentLeads.forEach(l => deleteLead(l._id));
+        serverLeads.forEach(l => addLead(l));
+      } catch (err) {
+        logger.error('Erro ao carregar leads:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadLeads();
+  }, []);
 
   // Reset state on page change and cleanup overlays
   useEffect(() => {
@@ -342,36 +364,47 @@ export function CRMPage() {
   };
 
   // CRUD handlers
-  const handleCreateLead = () => {
+  const handleCreateLead = async () => {
     if (!validateForm()) return;
-    const newLead: Lead = {
-      ...formData,
-      _id: `l_${Date.now()}`,
-      pipelineId: selectedPipelineId,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastActivity: 'Agora',
-    };
-    addLead(newLead);
-    setShowNewLead(false);
-    setFormData({ ...emptyLead, pipelineId: selectedPipelineId });
-    setFormErrors({});
-    showToast('Lead criado com sucesso!');
+    try {
+      const created = await leadService.create({ ...formData, pipelineId: selectedPipelineId });
+      addLead(created);
+      setShowNewLead(false);
+      setFormData({ ...emptyLead, pipelineId: selectedPipelineId });
+      setFormErrors({});
+      showToast('Lead criado com sucesso!');
+    } catch (err) {
+      logger.error('Erro ao criar lead:', err);
+      showToast('Erro ao criar lead.', 'error');
+    }
   };
 
-  const handleEditLead = () => {
+  const handleEditLead = async () => {
     if (!editingLead || !validateForm()) return;
-    updateLead(editingLead, formData);
-    setEditingLead(null);
-    setFormErrors({});
-    showToast('Lead atualizado com sucesso!');
+    try {
+      const updated = await leadService.update(editingLead, formData);
+      updateLead(editingLead, updated);
+      setEditingLead(null);
+      setFormErrors({});
+      showToast('Lead atualizado com sucesso!');
+    } catch (err) {
+      logger.error('Erro ao atualizar lead:', err);
+      showToast('Erro ao atualizar lead.', 'error');
+    }
   };
 
-  const handleDeleteLead = () => {
+  const handleDeleteLead = async () => {
     if (!deletingLead) return;
-    deleteLead(deletingLead);
-    if (selectedLead === deletingLead) setSelectedLead(null);
-    setDeletingLead(null);
-    showToast('Lead excluído!');
+    try {
+      await leadService.delete(deletingLead);
+      deleteLead(deletingLead);
+      if (selectedLead === deletingLead) setSelectedLead(null);
+      setDeletingLead(null);
+      showToast('Lead excluído!');
+    } catch (err) {
+      logger.error('Erro ao excluir lead:', err);
+      showToast('Erro ao excluir lead.', 'error');
+    }
   };
 
   const openEditModal = (lead: Lead) => {
@@ -385,18 +418,18 @@ export function CRMPage() {
     setShowNewLead(true);
   };
 
-  const handleDuplicateLead = (lead: Lead) => {
-    const newLead: Lead = {
-      ...lead,
-      _id: `l_${Date.now()}`,
-      name: `${lead.name} (cópia)`,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastActivity: 'Agora',
-      status: 'new',
-    };
-    addLead(newLead);
-    showToast('Lead duplicado!');
-    setQuickActionLead(null);
+  const handleDuplicateLead = async (lead: Lead) => {
+    try {
+      const { _id, createdAt, ...leadData } = lead;
+      const created = await leadService.create({ ...leadData, name: `${lead.name} (cópia)`, status: 'new' });
+      addLead(created);
+      showToast('Lead duplicado!');
+    } catch (err) {
+      logger.error('Erro ao duplicar lead:', err);
+      showToast('Erro ao duplicar lead.', 'error');
+    } finally {
+      setQuickActionLead(null);
+    }
   };
 
   // Notes
@@ -449,25 +482,49 @@ export function CRMPage() {
     }
   };
 
-  const handleBulkDelete = () => {
-    selectedLeads.forEach(id => deleteLead(id));
-    showToast(`${selectedLeads.size} leads excluídos!`);
-    setSelectedLeads(new Set());
-    setShowBulkActions(false);
+  const handleBulkDelete = async () => {
+    try {
+      const ids = Array.from(selectedLeads);
+      await leadService.bulkDelete(ids);
+      ids.forEach(id => deleteLead(id));
+      showToast(`${ids.length} leads excluídos!`);
+    } catch (err) {
+      logger.error('Erro ao excluir leads:', err);
+      showToast('Erro ao excluir leads.', 'error');
+    } finally {
+      setSelectedLeads(new Set());
+      setShowBulkActions(false);
+    }
   };
 
-  const handleBulkMoveStage = (stageId: string) => {
-    selectedLeads.forEach(id => moveLeadToStage(id, stageId));
-    showToast(`${selectedLeads.size} leads movidos!`);
-    setSelectedLeads(new Set());
-    setShowBulkActions(false);
+  const handleBulkMoveStage = async (stageId: string) => {
+    try {
+      const ids = Array.from(selectedLeads);
+      await leadService.bulkUpdate(ids, { stageId });
+      ids.forEach(id => moveLeadToStage(id, stageId));
+      showToast(`${ids.length} leads movidos!`);
+    } catch (err) {
+      logger.error('Erro ao mover leads:', err);
+      showToast('Erro ao mover leads.', 'error');
+    } finally {
+      setSelectedLeads(new Set());
+      setShowBulkActions(false);
+    }
   };
 
-  const handleBulkChangeStatus = (status: LeadStatus) => {
-    selectedLeads.forEach(id => updateLead(id, { status }));
-    showToast(`Status atualizado para ${selectedLeads.size} leads!`);
-    setSelectedLeads(new Set());
-    setShowBulkActions(false);
+  const handleBulkChangeStatus = async (status: LeadStatus) => {
+    try {
+      const ids = Array.from(selectedLeads);
+      await leadService.bulkUpdate(ids, { status });
+      ids.forEach(id => updateLead(id, { status }));
+      showToast(`Status atualizado para ${ids.length} leads!`);
+    } catch (err) {
+      logger.error('Erro ao atualizar leads:', err);
+      showToast('Erro ao atualizar leads.', 'error');
+    } finally {
+      setSelectedLeads(new Set());
+      setShowBulkActions(false);
+    }
   };
 
   // Export

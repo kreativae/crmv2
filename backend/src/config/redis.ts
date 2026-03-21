@@ -11,11 +11,11 @@ export const connectRedis = async (): Promise<Redis | null> => {
   }
   
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     redis = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
       lazyConnect: true,
-    });
+    } as any);
     
     await redis.connect();
     logger.info('✅ Redis connected successfully');

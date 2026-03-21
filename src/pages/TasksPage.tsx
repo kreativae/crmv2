@@ -1,8 +1,10 @@
+import { logger } from '../utils/logger';
 import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { forceCleanup } from '../utils/fixClickBlock';
+import { taskService } from '../api/services/taskService';
 import {
   Plus, Calendar, Clock, Flag, CheckCircle2, Circle, AlertCircle,
   Filter, User, X, Edit3, Trash2, Save, ChevronDown, Link2,
@@ -1383,6 +1385,26 @@ export function TasksPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'title' | 'createdAt'>('dueDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [_loading, setLoading] = useState(false);
+
+  // Load tasks from backend on mount
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        setLoading(true);
+        const response = await taskService.getAll();
+        const serverTasks = response.data || [];
+        const currentTasks = useStore.getState().tasks;
+        currentTasks.forEach(t => deleteTask(t._id));
+        serverTasks.forEach(t => addTask(t));
+      } catch (err) {
+        logger.error('Erro ao carregar tarefas:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTasks();
+  }, []);
   
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -1500,57 +1522,76 @@ export function TasksPage() {
   }), [tasks]);
 
   // Handlers
-  const handleCreateTask = (data: Partial<Task>) => {
-    const newTask: Task = {
-      _id: `t_${Date.now()}`,
-      organizationId: 'org_1',
-      title: data.title || '',
-      description: data.description || '',
-      assignedTo: data.assignedTo || '',
-      assignedName: data.assignedName || '',
-      leadId: undefined,
-      leadName: data.leadName,
-      priority: data.priority || 'medium',
-      status: data.status || 'todo',
-      dueDate: data.dueDate || getTodayStr(),
-      createdAt: getTodayStr(),
-      tags: data.tags || [],
-      estimatedHours: data.estimatedHours || 1,
-      subtasks: [],
-      notes: [],
-      activities: [{ id: `a_${Date.now()}`, action: 'Tarefa criada', user: 'Você', timestamp: new Date().toLocaleString('pt-BR') }],
-    };
-    addTask(newTask);
+  const handleCreateTask = async (data: Partial<Task>) => {
+    try {
+      const created = await taskService.create(data);
+      addTask(created);
+    } catch (err) {
+      logger.error('Erro ao criar tarefa:', err);
+      // Fallback local
+      const newTask: Task = {
+        _id: `t_${Date.now()}`,
+        organizationId: 'org_1',
+        title: data.title || '',
+        description: data.description || '',
+        assignedTo: data.assignedTo || '',
+        assignedName: data.assignedName || '',
+        leadId: undefined,
+        leadName: data.leadName,
+        priority: data.priority || 'medium',
+        status: data.status || 'todo',
+        dueDate: data.dueDate || getTodayStr(),
+        createdAt: getTodayStr(),
+        tags: data.tags || [],
+        estimatedHours: data.estimatedHours || 1,
+        subtasks: [],
+        notes: [],
+        activities: [{ id: `a_${Date.now()}`, action: 'Tarefa criada', user: 'Você', timestamp: new Date().toLocaleString('pt-BR') }],
+      };
+      addTask(newTask);
+    }
   };
 
-  const handleUpdateTask = (data: Partial<Task>) => {
+  const handleUpdateTask = async (data: Partial<Task>) => {
     if (editingTaskId) {
-      updateTask(editingTaskId, data);
+      try {
+        const updated = await taskService.update(editingTaskId, data);
+        updateTask(editingTaskId, updated);
+      } catch (err) {
+        logger.error('Erro ao atualizar tarefa:', err);
+        updateTask(editingTaskId, data);
+      }
     }
   };
 
-  const handleDeleteTask = () => {
+  const handleDeleteTask = async () => {
     if (deletingTaskId) {
-      deleteTask(deletingTaskId);
-      if (quickViewTaskId === deletingTaskId) setQuickViewTaskId(null);
-      setDeletingTaskId(null);
+      try {
+        await taskService.delete(deletingTaskId);
+        deleteTask(deletingTaskId);
+        if (quickViewTaskId === deletingTaskId) setQuickViewTaskId(null);
+      } catch (err) {
+        logger.error('Erro ao excluir tarefa:', err);
+      } finally {
+        setDeletingTaskId(null);
+      }
     }
   };
 
-  const handleDuplicateTask = (taskId: string) => {
+  const handleDuplicateTask = async (taskId: string) => {
     const original = tasks.find(t => t._id === taskId);
     if (!original) return;
-    
-    const duplicate: Task = {
-      ...original,
-      _id: `t_${Date.now()}`,
-      title: `${original.title} (cópia)`,
-      status: 'todo',
-      createdAt: getTodayStr(),
-      completedAt: undefined,
-      activities: [{ id: `a_${Date.now()}`, action: 'Tarefa duplicada', user: 'Você', timestamp: new Date().toLocaleString('pt-BR') }],
-    };
-    addTask(duplicate);
+    try {
+      const { _id, createdAt, completedAt, ...taskData } = original;
+      const created = await taskService.create({
+        ...taskData,
+        title: `${original.title} (cópia)`,
+        status: 'todo',
+      });
+      addTask(created);
+    } catch (err) {
+      logger.error('Erro ao duplicar tarefa:', err);
+    }
   };
 
   const handleToggleSelect = (taskId: string) => {
@@ -1571,18 +1612,32 @@ export function TasksPage() {
     }
   };
 
-  const handleBulkDelete = () => {
-    selectedIds.forEach(id => deleteTask(id));
-    setSelectedIds(new Set());
-    setShowBulkDeleteConfirm(false);
-    if (quickViewTaskId && selectedIds.has(quickViewTaskId)) {
-      setQuickViewTaskId(null);
+  const handleBulkDelete = async () => {
+    try {
+      const ids = Array.from(selectedIds);
+      await taskService.bulkDelete(ids);
+      ids.forEach(id => deleteTask(id));
+    } catch (err) {
+      logger.error('Erro ao excluir tarefas:', err);
+    } finally {
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      if (quickViewTaskId && selectedIds.has(quickViewTaskId)) {
+        setQuickViewTaskId(null);
+      }
     }
   };
 
-  const handleBulkStatusChange = (status: TaskStatus) => {
-    selectedIds.forEach(id => updateTaskStatus(id, status));
-    setSelectedIds(new Set());
+  const handleBulkStatusChange = async (status: TaskStatus) => {
+    try {
+      const ids = Array.from(selectedIds);
+      await taskService.bulkUpdate(ids, { status });
+      ids.forEach(id => updateTaskStatus(id, status));
+    } catch (err) {
+      logger.error('Erro ao atualizar tarefas:', err);
+    } finally {
+      setSelectedIds(new Set());
+    }
   };
 
   const handleExportCSV = () => {

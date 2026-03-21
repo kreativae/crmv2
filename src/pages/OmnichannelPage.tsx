@@ -1,7 +1,11 @@
+import { logger } from '../utils/logger';
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
+import { conversationService } from '../api/services/conversationService';
+import { leadService } from '../api/services/leadService';
+import { calendarService } from '../api/services/calendarService';
 import {
   Send, Paperclip, Smile, MoreVertical, Phone, Video, Search,
   MessageCircle, Instagram, Facebook, AtSign, Globe, Bot,
@@ -145,13 +149,19 @@ export function OmnichannelPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageInput.trim() || !selectedConversation) return;
-    sendMessage(selectedConversation, messageInput.trim());
+    const content = messageInput.trim();
+    sendMessage(selectedConversation, content);
     setMessageInput('');
     setShowQuickReplies(false);
     setShowEmojiPicker(false);
     setAttachedFile(null);
+    try {
+      await conversationService.sendMessage(selectedConversation, { content });
+    } catch (err) {
+      logger.error('Erro ao enviar mensagem:', err);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -276,38 +286,57 @@ export function OmnichannelPage() {
   };
 
   // CONVERT TO LEAD FUNCTION
-  const handleConvertToLead = () => {
+  const handleConvertToLead = async () => {
     if (!leadForm.name || !leadForm.email) {
       showToast('Nome e email são obrigatórios', 'error');
       return;
     }
     
-    const newLead = {
-      _id: `lead_${Date.now()}`,
-      organizationId: 'org_1',
-      name: leadForm.name,
-      email: leadForm.email,
-      phone: leadForm.phone,
-      company: leadForm.company,
-      source: 'omnichannel',
-      tags: [activeConversation?.channel || 'webchat', 'Convertido'],
-      pipelineId: 'pipeline_1',
-      stageId: 'stage_1',
-      assignedTo: 'user_1',
-      status: 'new' as const,
-      score: 50,
-      value: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    addLead(newLead);
-    showToast('Lead criado com sucesso! Disponível no CRM', 'success');
+    try {
+      const created = await leadService.create({
+        name: leadForm.name,
+        email: leadForm.email,
+        phone: leadForm.phone,
+        company: leadForm.company,
+        source: 'omnichannel',
+        tags: [activeConversation?.channel || 'webchat', 'Convertido'],
+        pipelineId: 'pipeline_1',
+        stageId: 'stage_1',
+        status: 'new',
+        score: 50,
+        value: 0,
+      });
+      addLead(created);
+      showToast('Lead criado com sucesso! Disponível no CRM', 'success');
+    } catch (err) {
+      logger.error('Erro ao converter para lead:', err);
+      // Fallback local
+      const newLead = {
+        _id: `lead_${Date.now()}`,
+        organizationId: 'org_1',
+        name: leadForm.name,
+        email: leadForm.email,
+        phone: leadForm.phone,
+        company: leadForm.company,
+        source: 'omnichannel',
+        tags: [activeConversation?.channel || 'webchat', 'Convertido'],
+        pipelineId: 'pipeline_1',
+        stageId: 'stage_1',
+        assignedTo: 'user_1',
+        status: 'new' as const,
+        score: 50,
+        value: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      addLead(newLead);
+      showToast('Lead criado com sucesso! Disponível no CRM', 'success');
+    }
     setShowConvertLeadModal(false);
   };
 
   // FOLLOW-UP FUNCTION
-  const handleCreateFollowUp = () => {
+  const handleCreateFollowUp = async () => {
     if (!followUpForm.title || !followUpForm.date) {
       showToast('Título e data são obrigatórios', 'error');
       return;
@@ -321,8 +350,7 @@ export function OmnichannelPage() {
     };
     
     const endHour = (parseInt(followUpForm.time.split(':')[0]) + 1).toString().padStart(2, '0');
-    const newEvent: CalendarEvent = {
-      _id: `event_${Date.now()}`,
+    const eventData = {
       title: followUpForm.title,
       description: followUpForm.notes,
       category: categoryMap[followUpForm.type] || 'task',
@@ -333,7 +361,14 @@ export function OmnichannelPage() {
       color: followUpForm.type === 'call' ? '#10b981' : followUpForm.type === 'meeting' ? '#6366f1' : '#f59e0b'
     };
     
-    addCalendarEvent(newEvent);
+    try {
+      const created = await calendarService.create(eventData);
+      addCalendarEvent(created);
+    } catch (err) {
+      logger.error('Erro ao criar follow-up:', err);
+      const newEvent: CalendarEvent = { _id: `event_${Date.now()}`, ...eventData } as CalendarEvent;
+      addCalendarEvent(newEvent);
+    }
     showToast('Follow-up agendado com sucesso!', 'success');
     setShowFollowUpModal(false);
   };

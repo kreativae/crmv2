@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { apiRateLimiter } from './middleware/rateLimit';
 
@@ -26,9 +27,16 @@ const app = express();
 // Security
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: env.FRONTEND_URL,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Trust proxy (needed for rate limiting behind reverse proxies like Heroku, Railway, etc.)
+if (env.isProd) {
+  app.set('trust proxy', 1);
+}
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -39,8 +47,10 @@ app.use(cookieParser());
 app.use(compression());
 
 // Logging
-if (process.env.NODE_ENV !== 'test') {
+if (env.isProd) {
   app.use(morgan('combined'));
+} else if (env.NODE_ENV !== 'test') {
+  app.use(morgan('dev'));
 }
 
 // Rate limiting

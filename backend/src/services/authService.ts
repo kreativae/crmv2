@@ -5,6 +5,13 @@ import { User, IUser } from '../models/User.js';
 import { Organization } from '../models/Organization.js';
 import { generateSlug, generateToken } from '../utils/helpers.js';
 import { emailService } from './emailService.js';
+import { logger } from '../utils/logger.js';
+
+// In-memory login attempt tracking (for brute-force protection)
+const loginAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil: number }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 interface TokenPair {
   accessToken: string;
@@ -29,14 +36,14 @@ class AuthService {
   generateTokens(userId: string, organizationId: string, role: string): TokenPair {
     const accessToken = jwt.sign(
       { userId, organizationId, role },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN }
+      env.JWT_SECRET as string,
+      { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
     );
 
     const refreshToken = jwt.sign(
       { userId, organizationId, type: 'refresh' },
-      env.JWT_REFRESH_SECRET,
-      { expiresIn: env.JWT_REFRESH_EXPIRES_IN }
+      env.JWT_REFRESH_SECRET as string,
+      { expiresIn: env.JWT_REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
     );
 
     return { accessToken, refreshToken };
@@ -119,12 +126,29 @@ class AuthService {
     user: IUser;
     tokens: TokenPair;
   }> {
+    const emailKey = data.email.toLowerCase();
+    
+    // Check if account is locked due to too many failed attempts
+    const attempts = loginAttempts.get(emailKey);
+    if (attempts) {
+      const now = Date.now();
+      if (attempts.lockedUntil > now) {
+        const remainingMinutes = Math.ceil((attempts.lockedUntil - now) / 60000);
+        throw new Error(`Conta temporariamente bloqueada. Tente novamente em ${remainingMinutes} minutos.`);
+      }
+      // Reset if window expired
+      if (now - attempts.lastAttempt > ATTEMPT_WINDOW_MS) {
+        loginAttempts.delete(emailKey);
+      }
+    }
+
     // Find user with password
-    const user = await User.findOne({ email: data.email.toLowerCase() })
+    const user = await User.findOne({ email: emailKey })
       .select('+password')
       .populate('organizationId');
 
     if (!user) {
+      this.recordFailedAttempt(emailKey);
       throw new Error('Email ou senha inválidos');
     }
 
@@ -135,8 +159,12 @@ class AuthService {
     // Check password
     const isValidPassword = await user.comparePassword(data.password);
     if (!isValidPassword) {
+      this.recordFailedAttempt(emailKey);
       throw new Error('Email ou senha inválidos');
     }
+
+    // Login successful — clear attempts
+    loginAttempts.delete(emailKey);
 
     // Generate tokens (use _id from populated org, not the full object)
     const orgId = typeof user.organizationId === 'object' && user.organizationId._id
@@ -271,6 +299,25 @@ class AuthService {
     user.password = newPassword;
     user.refreshTokens = []; // Invalidate all sessions
     await user.save();
+  }
+
+  // Track failed login attempts for brute-force protection
+  private recordFailedAttempt(email: string): void {
+    const now = Date.now();
+    const existing = loginAttempts.get(email);
+    
+    if (!existing) {
+      loginAttempts.set(email, { count: 1, lastAttempt: now, lockedUntil: 0 });
+      return;
+    }
+    
+    existing.count++;
+    existing.lastAttempt = now;
+    
+    if (existing.count >= MAX_LOGIN_ATTEMPTS) {
+      existing.lockedUntil = now + LOCK_DURATION_MS;
+      logger.warn(`Account locked due to ${existing.count} failed login attempts: ${email}`);
+    }
   }
 }
 

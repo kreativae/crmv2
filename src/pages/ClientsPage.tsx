@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { logger } from '../utils/logger';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import type { Client, ClientNote } from '../types';
 import { forceCleanup } from '../utils/fixClickBlock';
+import { clientService } from '../api/services/clientService';
 import {
   Search, Plus, Grid3X3, List, Download, MoreHorizontal, Edit2, Trash2, Eye,
   Mail, Phone, Building2, MapPin, Tag, X, Check, Copy, MessageSquare, TrendingUp,
@@ -77,6 +79,31 @@ export function ClientsPage() {
 
   // Toast
   const [toasts, setToasts] = useState<{ id: string; type: ToastType; message: string }[]>([]);
+
+  const [_loading, setLoading] = useState(false);
+
+  // Load clients from backend on mount
+  const loadClients = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await clientService.getAll();
+      const serverClients = response.data || [];
+      // Sync with store: replace local clients with server data
+      const currentClients = useStore.getState().clients;
+      // Remove all local clients and add server ones
+      currentClients.forEach(c => deleteClient(c._id));
+      serverClients.forEach(c => addClient(c));
+    } catch (err) {
+      logger.error('Erro ao carregar clientes:', err);
+      // If API is not available, keep local state
+    } finally {
+      setLoading(false);
+    }
+  }, [addClient, deleteClient]);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
 
   // Reset state on unmount and cleanup overlays
   useEffect(() => {
@@ -153,50 +180,76 @@ export function ClientsPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSaveClient = () => {
-    if (!validateForm()) return;
+  const [_saving, setSaving] = useState(false);
 
-    if (editingClient) {
-      updateClient(editingClient._id, formData);
-      showToast('success', 'Cliente atualizado com sucesso!');
-      setEditingClient(null);
-    } else {
-      const newClient: Client = {
-        ...formData,
-        _id: `cli_${Date.now()}`,
-        organizationId: 'org_1',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      addClient(newClient);
-      showToast('success', 'Cliente criado com sucesso!');
-      setShowCreateModal(false);
+  const handleSaveClient = async () => {
+    if (!validateForm()) return;
+    setSaving(true);
+
+    try {
+      if (editingClient) {
+        const updated = await clientService.update(editingClient._id, formData);
+        updateClient(editingClient._id, updated);
+        showToast('success', 'Cliente atualizado com sucesso!');
+        setEditingClient(null);
+      } else {
+        const created = await clientService.create(formData);
+        addClient(created);
+        showToast('success', 'Cliente criado com sucesso!');
+        setShowCreateModal(false);
+      }
+      resetForm();
+    } catch (err) {
+      logger.error('Erro ao salvar cliente:', err);
+      showToast('error', 'Erro ao salvar cliente. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
-    resetForm();
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (clientToDelete) {
-      deleteClient(clientToDelete._id);
-      showToast('success', 'Cliente excluído!');
-      setClientToDelete(null);
-      setShowDeleteModal(false);
-      if (selectedClient?._id === clientToDelete._id) {
-        setSelectedClient(null);
+      try {
+        await clientService.delete(clientToDelete._id);
+        deleteClient(clientToDelete._id);
+        showToast('success', 'Cliente excluído!');
+        if (selectedClient?._id === clientToDelete._id) {
+          setSelectedClient(null);
+        }
+      } catch (err) {
+        logger.error('Erro ao excluir cliente:', err);
+        showToast('error', 'Erro ao excluir cliente.');
+      } finally {
+        setClientToDelete(null);
+        setShowDeleteModal(false);
       }
     }
   };
 
-  const handleBulkDelete = () => {
-    selectedClients.forEach(id => deleteClient(id));
-    showToast('success', `${selectedClients.length} clientes excluídos!`);
-    setSelectedClients([]);
+  const handleBulkDelete = async () => {
+    try {
+      await clientService.bulkDelete(selectedClients);
+      selectedClients.forEach(id => deleteClient(id));
+      showToast('success', `${selectedClients.length} clientes excluídos!`);
+    } catch (err) {
+      logger.error('Erro ao excluir clientes:', err);
+      showToast('error', 'Erro ao excluir clientes.');
+    } finally {
+      setSelectedClients([]);
+    }
   };
 
-  const handleBulkStatusChange = (status: 'active' | 'inactive') => {
-    selectedClients.forEach(id => updateClient(id, { status }));
-    showToast('success', `${selectedClients.length} clientes atualizados!`);
-    setSelectedClients([]);
+  const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
+    try {
+      await clientService.bulkUpdate(selectedClients, { status });
+      selectedClients.forEach(id => updateClient(id, { status }));
+      showToast('success', `${selectedClients.length} clientes atualizados!`);
+    } catch (err) {
+      logger.error('Erro ao atualizar clientes:', err);
+      showToast('error', 'Erro ao atualizar clientes.');
+    } finally {
+      setSelectedClients([]);
+    }
   };
 
   const handleAddTag = () => {
@@ -210,39 +263,58 @@ export function ClientsPage() {
     setFormData(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
   };
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!noteInput.trim() || !selectedClient) return;
-    const newNote: ClientNote = {
-      id: `n_${Date.now()}`,
-      content: noteInput.trim(),
-      author: 'Você',
-      createdAt: new Date().toISOString(),
-    };
-    updateClient(selectedClient._id, { notes: [...selectedClient.notes, newNote] });
-    setSelectedClient({ ...selectedClient, notes: [...selectedClient.notes, newNote] });
-    setNoteInput('');
-    showToast('success', 'Nota adicionada!');
+    try {
+      const updated = await clientService.addNote(selectedClient._id, noteInput.trim());
+      updateClient(selectedClient._id, { notes: updated.notes });
+      setSelectedClient({ ...selectedClient, notes: updated.notes });
+      setNoteInput('');
+      showToast('success', 'Nota adicionada!');
+    } catch (err) {
+      logger.error('Erro ao adicionar nota:', err);
+      // Fallback local
+      const newNote: ClientNote = {
+        id: `n_${Date.now()}`,
+        content: noteInput.trim(),
+        author: 'Você',
+        createdAt: new Date().toISOString(),
+      };
+      updateClient(selectedClient._id, { notes: [...selectedClient.notes, newNote] });
+      setSelectedClient({ ...selectedClient, notes: [...selectedClient.notes, newNote] });
+      setNoteInput('');
+      showToast('success', 'Nota adicionada!');
+    }
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = async (noteId: string) => {
     if (!selectedClient) return;
-    const updatedNotes = selectedClient.notes.filter(n => n.id !== noteId);
-    updateClient(selectedClient._id, { notes: updatedNotes });
-    setSelectedClient({ ...selectedClient, notes: updatedNotes });
-    showToast('info', 'Nota removida');
+    try {
+      const updated = await clientService.deleteNote(selectedClient._id, noteId);
+      updateClient(selectedClient._id, { notes: updated.notes });
+      setSelectedClient({ ...selectedClient, notes: updated.notes });
+      showToast('info', 'Nota removida');
+    } catch (err) {
+      logger.error('Erro ao remover nota:', err);
+      const updatedNotes = selectedClient.notes.filter(n => n.id !== noteId);
+      updateClient(selectedClient._id, { notes: updatedNotes });
+      setSelectedClient({ ...selectedClient, notes: updatedNotes });
+      showToast('info', 'Nota removida');
+    }
   };
 
-  const handleDuplicate = (client: Client) => {
-    const newClient: Client = {
-      ...client,
-      _id: `cli_${Date.now()}`,
-      name: `${client.name} (cópia)`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    addClient(newClient);
-    showToast('success', 'Cliente duplicado!');
-    setQuickActionsClient(null);
+  const handleDuplicate = async (client: Client) => {
+    try {
+      const { _id, createdAt, updatedAt, ...clientData } = client;
+      const created = await clientService.create({ ...clientData, name: `${client.name} (cópia)` });
+      addClient(created);
+      showToast('success', 'Cliente duplicado!');
+    } catch (err) {
+      logger.error('Erro ao duplicar cliente:', err);
+      showToast('error', 'Erro ao duplicar cliente.');
+    } finally {
+      setQuickActionsClient(null);
+    }
   };
 
   const handleExportCSV = () => {

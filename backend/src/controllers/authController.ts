@@ -52,42 +52,6 @@ export const authController = {
     });
   }),
 
-  // POST /api/auth/refresh
-  refresh: asyncHandler(async (req: Request, res: Response) => {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-
-    if (!refreshToken) {
-      res.status(401).json({ error: 'Refresh token não fornecido' });
-      return;
-    }
-
-    const tokens = await authService.refreshToken(refreshToken);
-
-    // Set new refresh token
-    res.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.json({
-      accessToken: tokens.accessToken,
-    });
-  }),
-
-  // POST /api/auth/logout
-  logout: asyncHandler(async (req: Request, res: Response) => {
-    const refreshToken = req.cookies.refreshToken;
-
-    if (req.user) {
-      await authService.logout(req.user._id.toString(), refreshToken);
-    }
-
-    res.clearCookie('refreshToken');
-    res.json({ message: 'Logout realizado com sucesso' });
-  }),
-
   // POST /api/auth/forgot-password
   forgotPassword: asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;

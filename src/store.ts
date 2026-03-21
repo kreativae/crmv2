@@ -160,8 +160,6 @@ export const useStore = create<AppState>((set) => ({
     return false;
   },
   logout: () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     set({ isAuthenticated: false, currentUser: null, currentPage: 'login' });
   },
 

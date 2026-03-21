@@ -1,4 +1,4 @@
-export { default as api, checkApiHealth } from './client';
+export { default as api, checkApiHealth, setAccessToken, getAccessToken } from './client';
 export { default as authService } from './services/authService';
 export { default as leadService } from './services/leadService';
 export { default as clientService } from './services/clientService';

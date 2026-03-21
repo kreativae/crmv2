@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { logger } from '../utils/logger';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarDays, Plus, ChevronLeft, ChevronRight, Clock, MapPin, User, Tag,
@@ -7,6 +8,7 @@ import {
   GripVertical, AlertCircle, Repeat, FileText
 } from 'lucide-react';
 import { useStore } from '../store';
+import { calendarService } from '../api/services/calendarService';
 import type { CalendarEvent, EventCategory } from '../types';
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7:00 - 21:00
@@ -79,6 +81,22 @@ export function AgendaPage() {
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load events from backend on mount
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const response = await calendarService.getAll();
+        const serverEvents = response.data || [];
+        const currentEvents = useStore.getState().calendarEvents;
+        currentEvents.forEach(e => deleteCalendarEvent(e._id));
+        serverEvents.forEach(e => addCalendarEvent(e));
+      } catch (err) {
+        logger.error('Erro ao carregar eventos:', err);
+      }
+    };
+    loadEvents();
+  }, []);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `t_${Date.now()}`;
@@ -204,46 +222,76 @@ export function AgendaPage() {
   };
 
   // Create event
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!validateForm()) return;
-    const newEvent: CalendarEvent = { ...eventForm, _id: `ev_${Date.now()}` } as CalendarEvent;
-    addCalendarEvent(newEvent);
-    setShowCreateModal(false);
-    setEventForm(emptyForm);
-    addToast('Evento criado com sucesso!');
+    try {
+      const created = await calendarService.create(eventForm);
+      addCalendarEvent(created);
+      setShowCreateModal(false);
+      setEventForm(emptyForm);
+      addToast('Evento criado com sucesso!');
+    } catch (err) {
+      logger.error('Erro ao criar evento:', err);
+      addToast('Erro ao criar evento.', 'error');
+    }
   };
 
   // Update event
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!selectedEvent || !validateForm()) return;
-    updateCalendarEvent(selectedEvent._id, eventForm);
-    setShowEditModal(false);
-    setSelectedEvent({ ...selectedEvent, ...eventForm });
-    addToast('Evento atualizado!');
+    try {
+      const updated = await calendarService.update(selectedEvent._id, eventForm);
+      updateCalendarEvent(selectedEvent._id, updated);
+      setShowEditModal(false);
+      setSelectedEvent({ ...selectedEvent, ...updated });
+      addToast('Evento atualizado!');
+    } catch (err) {
+      logger.error('Erro ao atualizar evento:', err);
+      addToast('Erro ao atualizar evento.', 'error');
+    }
   };
 
   // Delete event
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedEvent) return;
-    deleteCalendarEvent(selectedEvent._id);
-    setShowDeleteModal(false);
-    setShowDetailPanel(false);
-    setSelectedEvent(null);
-    addToast('Evento excluído!', 'info');
+    try {
+      await calendarService.delete(selectedEvent._id);
+      deleteCalendarEvent(selectedEvent._id);
+      setShowDeleteModal(false);
+      setShowDetailPanel(false);
+      setSelectedEvent(null);
+      addToast('Evento excluído!', 'info');
+    } catch (err) {
+      logger.error('Erro ao excluir evento:', err);
+      addToast('Erro ao excluir evento.', 'error');
+    }
   };
 
   // Duplicate
-  const handleDuplicate = () => {
+  const handleDuplicate = async () => {
     if (!selectedEvent) return;
-    const dup: CalendarEvent = { ...selectedEvent, _id: `ev_${Date.now()}`, title: `${selectedEvent.title} (cópia)`, completed: false };
-    addCalendarEvent(dup);
-    addToast('Evento duplicado!');
+    try {
+      const { _id, ...eventData } = selectedEvent;
+      const created = await calendarService.create({ ...eventData, title: `${selectedEvent.title} (cópia)`, completed: false });
+      addCalendarEvent(created);
+      addToast('Evento duplicado!');
+    } catch (err) {
+      logger.error('Erro ao duplicar evento:', err);
+      addToast('Erro ao duplicar evento.', 'error');
+    }
   };
 
   // Toggle complete
-  const toggleComplete = (ev: CalendarEvent) => {
-    updateCalendarEvent(ev._id, { completed: !ev.completed });
-    addToast(ev.completed ? 'Evento reativado!' : 'Evento concluído!');
+  const toggleComplete = async (ev: CalendarEvent) => {
+    try {
+      await calendarService.update(ev._id, { completed: !ev.completed });
+      updateCalendarEvent(ev._id, { completed: !ev.completed });
+      addToast(ev.completed ? 'Evento reativado!' : 'Evento concluído!');
+    } catch (err) {
+      logger.error('Erro ao atualizar evento:', err);
+      updateCalendarEvent(ev._id, { completed: !ev.completed });
+      addToast(ev.completed ? 'Evento reativado!' : 'Evento concluído!');
+    }
   };
 
   // Open create with pre-filled date/time

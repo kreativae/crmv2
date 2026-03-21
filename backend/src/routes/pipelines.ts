@@ -36,9 +36,9 @@ router.get('/:id', async (req, res, next) => {
       { $group: { _id: '$stageId', count: { $sum: 1 } } },
     ]);
     
-    const stagesWithCounts = pipeline.stages.map(stage => ({
-      ...stage.toObject(),
-      leadsCount: leadCounts.find(c => c._id.toString() === stage._id.toString())?.count || 0,
+    const stagesWithCounts = pipeline.stages.map((stage: any) => ({
+      ...(stage.toObject ? stage.toObject() : stage),
+      leadsCount: leadCounts.find((c: any) => c._id.toString() === (stage._id || stage.id)?.toString())?.count || 0,
     }));
     
     res.json({ ...pipeline.toObject(), stages: stagesWithCounts });
@@ -144,7 +144,7 @@ router.put('/:id/stages/:stageId', authorize('admin', 'manager'), async (req, re
       return res.status(404).json({ error: 'Pipeline não encontrado' });
     }
     
-    const stage = pipeline.stages.id(req.params.stageId);
+    const stage = (pipeline.stages as any).id(req.params.stageId);
     if (!stage) {
       return res.status(404).json({ error: 'Etapa não encontrada' });
     }
@@ -182,7 +182,7 @@ router.delete('/:id/stages/:stageId', authorize('admin', 'manager'), async (req,
       return res.status(404).json({ error: 'Pipeline não encontrado' });
     }
     
-    pipeline.stages.pull({ _id: req.params.stageId });
+    (pipeline.stages as any).pull({ _id: req.params.stageId });
     await pipeline.save();
     
     res.json(pipeline);
@@ -207,7 +207,7 @@ router.put('/:id/stages/reorder', authorize('admin', 'manager'), async (req, res
     
     // Reorder stages based on stageIds array
     const reorderedStages = stageIds.map((id: string, index: number) => {
-      const stage = pipeline.stages.id(id);
+      const stage = (pipeline.stages as any).id(id);
       if (stage) {
         stage.order = index;
         return stage;

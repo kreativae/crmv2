@@ -1,4 +1,5 @@
 import api from '../client';
+import { setAccessToken, getAccessToken } from '../client';
 import type { User } from '../../types';
 
 export interface LoginRequest {
@@ -24,7 +25,7 @@ export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', data);
     if (response.data.accessToken) {
-      localStorage.setItem('accessToken', response.data.accessToken);
+      setAccessToken(response.data.accessToken);
     }
     return response.data;
   },
@@ -32,14 +33,15 @@ export const authService = {
   async register(data: RegisterRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/register', data);
     if (response.data.accessToken) {
-      localStorage.setItem('accessToken', response.data.accessToken);
+      setAccessToken(response.data.accessToken);
     }
     return response.data;
   },
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-    const response = await api.post('/auth/refresh', { refreshToken });
-    return response.data.data;
+  async refreshToken(): Promise<{ accessToken: string }> {
+    // Refresh token is sent via httpOnly cookie automatically
+    const response = await api.post('/auth/refresh');
+    return response.data;
   },
 
   async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
@@ -67,13 +69,17 @@ export const authService = {
     return response.data;
   },
 
-  logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  async logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore errors during logout
+    }
+    setAccessToken(null);
   },
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('accessToken');
+    return !!getAccessToken();
   },
 };
 

@@ -106,7 +106,7 @@ router.post('/', async (req, res, next) => {
     const task = new Task({
       ...req.body,
       organizationId: req.organizationId,
-      createdBy: req.user._id,
+      createdBy: req.user!._id,
     });
     
     await task.save();
@@ -114,7 +114,7 @@ router.post('/', async (req, res, next) => {
     
     await AuditLog.create({
       organizationId: req.organizationId,
-      userId: req.user._id,
+      userId: req.user!._id,
       action: 'task.create',
       resource: 'task',
       resourceId: task._id,
@@ -230,7 +230,7 @@ router.put('/:id/subtasks/:subtaskId/toggle', async (req, res, next) => {
       return res.status(404).json({ error: 'Tarefa não encontrada' });
     }
     
-    const subtask = task.subtasks.id(req.params.subtaskId);
+    const subtask = (task.subtasks as any).id(req.params.subtaskId);
     if (!subtask) {
       return res.status(404).json({ error: 'Subtarefa não encontrada' });
     }
@@ -258,7 +258,7 @@ router.post('/:id/notes', async (req, res, next) => {
     
     task.notes.push({
       ...req.body,
-      author: req.user.name,
+      author: req.user!.name,
       createdAt: new Date(),
     });
     await task.save();

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { useCallback } from 'react';
 import { leadService, type LeadFilters } from '../api/services/leadService';
 import { useStore } from '../store';
@@ -12,7 +13,7 @@ export function useLeads() {
       // Update store with fetched leads
       return response.data;
     } catch (error) {
-      console.log('API not available, using store data');
+      logger.log('API not available, using store data');
       return leads;
     }
   }, [leads]);
