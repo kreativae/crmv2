@@ -8,11 +8,11 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const navItems: { page: AppPage; label: string; icon: React.ElementType; badge?: number }[] = [
+const baseNavItems: { page: AppPage; label: string; icon: React.ElementType; badge?: number }[] = [
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { page: 'crm', label: 'CRM & Leads', icon: Users },
   { page: 'clients', label: 'Clientes', icon: UserCircle },
-  { page: 'omnichannel', label: 'Omnichannel', icon: MessageSquare, badge: 7 },
+  { page: 'omnichannel', label: 'Omnichannel', icon: MessageSquare },
   { page: 'automation', label: 'Automação', icon: Zap },
   { page: 'tasks', label: 'Tarefas', icon: CheckSquare, badge: 3 },
   { page: 'finance', label: 'Financeiro', icon: DollarSign },
@@ -28,7 +28,16 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
-  const { currentPage, setCurrentPage, sidebarCollapsed, currentUser, logout, aiAssistantVisible, toggleAiAssistant, branding } = useStore();
+  const { currentPage, setCurrentPage, sidebarCollapsed, currentUser, logout, aiAssistantVisible, toggleAiAssistant, branding, conversations, tasks } = useStore();
+
+  const unreadConversationsCount = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  const pendingTasksCount = tasks.filter(t => t.status !== 'done').length;
+
+  const navItems = baseNavItems.map(item => {
+    if (item.page === 'omnichannel') return { ...item, badge: unreadConversationsCount > 0 ? unreadConversationsCount : undefined };
+    if (item.page === 'tasks') return { ...item, badge: pendingTasksCount > 0 ? pendingTasksCount : undefined };
+    return item;
+  });
 
   const handleNav = (page: AppPage) => {
     setCurrentPage(page);
