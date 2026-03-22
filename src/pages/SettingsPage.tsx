@@ -144,9 +144,38 @@ function GeneralTab({ showToast }: { showToast: (msg: string, type?: Toast['type
   const [saving, setSaving] = useState(false);
   const [dangerConfirm, setDangerConfirm] = useState(false);
 
-  const handleSave = () => {
+  // Carregar configurações do backend
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const org = await settingsService.getOrganization();
+        if (org) {
+          setOrgName(org.name || 'NexCRM Corp');
+          setDomain(org.domain || 'app.nexcrm.com');
+          setTimezone((org as any).timezone || 'America/Sao_Paulo');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => { setSaving(false); showToast('Configurações salvas com sucesso!'); }, 1200);
+    try {
+      await settingsService.updateOrganization({
+        name: orgName,
+        domain: domain,
+        timezone: timezone,
+      } as any);
+      showToast('Configurações salvas com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      showToast('Erro ao salvar configurações. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleVerifyDns = () => {
@@ -554,14 +583,57 @@ function PermissionsTab({ showToast }: { showToast: (msg: string, type?: Toast['
   const [perms, setPerms] = useState(defaultPerms);
   const [saving, setSaving] = useState(false);
 
+  // Carregar permissões do backend
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const roles = await settingsService.getRoles();
+        if (roles && typeof roles === 'object' && !Array.isArray(roles)) {
+          // Converter se necessário para o formato esperado
+          const formattedRoles: Record<string, Record<string, boolean>> = {};
+          Object.entries(roles).forEach(([role, permissions]) => {
+            if (Array.isArray(permissions)) {
+              formattedRoles[role] = {};
+              allModules.forEach(mod => {
+                formattedRoles[role][mod] = permissions.includes(mod);
+              });
+            } else {
+              formattedRoles[role] = permissions as Record<string, boolean>;
+            }
+          });
+          setPerms(formattedRoles);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar permissões:', error);
+      }
+    };
+    loadRoles();
+  }, []);
+
   const toggle = (role: string, mod: string) => {
     if (role === 'owner') return;
     setPerms(prev => ({ ...prev, [role]: { ...prev[role], [mod]: !prev[role][mod] } }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => { setSaving(false); showToast('Permissões salvas com sucesso!'); }, 1000);
+    try {
+      // Converter formato para o backend (Record<string, string[]>)
+      const rolesForBackend: Record<string, string[]> = {};
+      Object.entries(perms).forEach(([role, modules]) => {
+        rolesForBackend[role] = Object.entries(modules)
+          .filter(([_, enabled]) => enabled)
+          .map(([mod]) => mod);
+      });
+      
+      await settingsService.updateRoles(rolesForBackend);
+      showToast('Permissões salvas com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar permissões:', error);
+      showToast('Erro ao salvar permissões. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1721,6 +1793,25 @@ function BrandingTab({ showToast }: { showToast: (msg: string, type?: Toast['typ
 
   const presetColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#ef4444', '#f97316', '#14b8a6', '#f472b6', '#84cc16', '#06b6d4'];
 
+  // Carregar branding do backend ao montar
+  useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const org = await settingsService.getOrganization();
+        if (org?.branding) {
+          setBrandColor(org.branding.primaryColor || '#6366f1');
+          setDarkMode(org.branding.darkMode || false);
+          if (org.branding.logo) {
+            setLogoFile(org.branding.logo);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar branding:', error);
+      }
+    };
+    loadBranding();
+  }, []);
+
   // Detectar mudanças
   useEffect(() => {
     const changed = brandColor !== branding.primaryColor ||
@@ -1753,22 +1844,32 @@ function BrandingTab({ showToast }: { showToast: (msg: string, type?: Toast['typ
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    
-    // Aplicar as mudanças no store (isso aplica globalmente)
-    updateBranding({
-      companyName,
-      primaryColor: brandColor,
-      logo: logoFile,
-      darkMode
-    });
-    
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      // Salvar no backend
+      await settingsService.updateBranding({
+        primaryColor: brandColor,
+        logo: logoFile || undefined,
+        darkMode
+      });
+      
+      // Aplicar as mudanças no store (isso aplica globalmente)
+      updateBranding({
+        companyName,
+        primaryColor: brandColor,
+        logo: logoFile || undefined,
+        darkMode
+      });
+      
       setHasChanges(false);
       showToast('Branding aplicado com sucesso! As mudanças estão visíveis em todo o sistema.');
-    }, 800);
+    } catch (error) {
+      console.error('Erro ao salvar branding:', error);
+      showToast('Erro ao salvar branding. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -1984,13 +2085,61 @@ function NotificationsTab({ showToast }: { showToast: (msg: string, type?: Toast
   ]);
   const [saving, setSaving] = useState(false);
 
+  // Carregar notificações do backend
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const settings = await settingsService.getNotificationSettings();
+        if (settings) {
+          const updatedNotifs = notifs.map(n => {
+            if (n.id === 'n1' && settings.newLead) return { ...n, ...settings.newLead };
+            if (n.id === 'n2' && settings.newMessage) return { ...n, ...settings.newMessage };
+            if (n.id === 'n3' && settings.dealClosed) return { ...n, ...settings.dealClosed };
+            if (n.id === 'n4' && settings.slaExceeded) return { ...n, ...settings.slaExceeded };
+            if (n.id === 'n5' && settings.taskOverdue) return { ...n, ...settings.taskOverdue };
+            return n;
+          });
+          setNotifs(updatedNotifs);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar preferências de notificação:', error);
+      }
+    };
+    loadNotifications();
+  }, []);
+
   const toggle = (id: string, channel: 'email' | 'push' | 'inApp') => {
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, [channel]: !n[channel] } : n));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => { setSaving(false); showToast('Preferências de notificação salvas!'); }, 1000);
+    try {
+      // Converter formato para o backend
+      const settings: any = {
+        newLead: { email: false, push: false, inApp: false },
+        newMessage: { email: false, push: false, inApp: false },
+        dealClosed: { email: false, push: false, inApp: false },
+        taskOverdue: { email: false, push: false, inApp: false },
+        slaExceeded: { email: false, push: false, inApp: false },
+      };
+      
+      notifs.forEach(notif => {
+        if (notif.id === 'n1') settings.newLead = { email: notif.email, push: notif.push, inApp: notif.inApp };
+        else if (notif.id === 'n2') settings.newMessage = { email: notif.email, push: notif.push, inApp: notif.inApp };
+        else if (notif.id === 'n3') settings.dealClosed = { email: notif.email, push: notif.push, inApp: notif.inApp };
+        else if (notif.id === 'n5') settings.taskOverdue = { email: notif.email, push: notif.push, inApp: notif.inApp };
+        else if (notif.id === 'n4') settings.slaExceeded = { email: notif.email, push: notif.push, inApp: notif.inApp };
+      });
+      
+      await settingsService.updateNotificationSettings(settings);
+      showToast('Preferências de notificação salvas!');
+    } catch (error) {
+      console.error('Erro ao salvar notificações:', error);
+      showToast('Erro ao salvar preferências. Tente novamente.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Toggle Switch Component
