@@ -4,6 +4,7 @@ import { tenantMiddleware } from '../middleware/tenant';
 import { Organization } from '../models/Organization';
 import { User } from '../models/User';
 import { AuditLog } from '../models/AuditLog';
+import { encryptionUtils } from '../utils/encryption';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
@@ -201,7 +202,22 @@ router.put('/users/:id/toggle', authorize('owner', 'admin'), async (req, res, ne
 router.get('/integrations', async (req, res, next) => {
   try {
     const org = await Organization.findById(req.organizationId);
-    res.json(org?.integrations || []);
+    if (!org?.integrations) {
+      return res.json([]);
+    }
+    
+    // Decrypt credentials before returning to frontend
+    const integrations = (org.integrations as any[]).map(int => {
+      if (int.credentials) {
+        return {
+          ...int.toObject ? int.toObject() : int,
+          credentials: encryptionUtils.decryptCredentials(int.credentials),
+        };
+      }
+      return int.toObject ? int.toObject() : int;
+    });
+    
+    res.json(integrations);
   } catch (error) {
     next(error);
   }
@@ -215,17 +231,23 @@ router.put('/integrations/:id', authorize('owner', 'admin'), async (req, res, ne
       return res.status(404).json({ error: 'Organização não encontrada' });
     }
     
+    // Encrypt sensitive credentials before saving
+    const updateData = { ...req.body };
+    if (updateData.credentials) {
+      updateData.credentials = encryptionUtils.encryptCredentials(updateData.credentials);
+    }
+    
     const orgAny = org as any;
     const integrationIndex = orgAny.integrations.findIndex(
-      (i: any) => i.id === req.params.id
+      (i: any) => i.id === req.params.id || i.name === req.params.id
     );
     
     if (integrationIndex === -1) {
-      orgAny.integrations.push({ id: req.params.id, ...req.body });
+      orgAny.integrations.push({ id: req.params.id, name: req.params.id, ...updateData });
     } else {
       orgAny.integrations[integrationIndex] = { 
         ...orgAny.integrations[integrationIndex], 
-        ...req.body 
+        ...updateData
       };
     }
     
@@ -240,7 +262,17 @@ router.put('/integrations/:id', authorize('owner', 'admin'), async (req, res, ne
       ip: req.ip,
     });
     
-    res.json(org.integrations);
+    // Return decrypted credentials to frontend
+    const savedIntegration = orgAny.integrations[
+      orgAny.integrations.findIndex((i: any) => i.id === req.params.id || i.name === req.params.id)
+    ];
+    
+    const responseData = { ...savedIntegration };
+    if (responseData.credentials) {
+      responseData.credentials = encryptionUtils.decryptCredentials(responseData.credentials);
+    }
+    
+    res.json(responseData);
   } catch (error) {
     next(error);
   }
@@ -254,8 +286,20 @@ router.delete('/integrations/:id', authorize('owner', 'admin'), async (req, res,
       return res.status(404).json({ error: 'Organização não encontrada' });
     }
     
-    org.integrations = (org as any).integrations.filter((i: any) => i.id !== req.params.id);
+    // Support deleting by id or name
+    org.integrations = (org as any).integrations.filter(
+      (i: any) => i.id !== req.params.id && i.name !== req.params.id
+    );
     await org.save();
+    
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: req.user!._id,
+      action: 'integration.disconnect',
+      resource: 'integration',
+      resourceId: req.params.id,
+      ip: req.ip,
+    });
     
     res.json({ message: 'Integração desconectada' });
   } catch (error) {

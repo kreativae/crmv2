@@ -26,6 +26,7 @@ export interface IntegrationConfig {
   category: string;
   connectedAt?: string;
   config?: Record<string, string>;
+  credentials?: Record<string, string>;
   metrics?: {
     requestsMonth?: number;
     successfulChecks?: number;

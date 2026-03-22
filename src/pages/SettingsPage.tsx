@@ -893,7 +893,7 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
   };
 
   // Handle OAuth config save
-  const handleSaveOAuth = () => {
+  const handleSaveOAuth = async () => {
     if (!configModal) return;
     
     const fields = getOAuthFields(configModal.name);
@@ -905,18 +905,42 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
       return;
     }
     
-    // Simulate saving
-    updateIntegration(configModal.name, {
-      status: 'connected',
-      connectedAt: new Date().toISOString(),
-      description: 'Configurado - OAuth ativo',
-      metrics: mergeMetrics(configModal, {
-        requestsMonth: (configModal.metrics?.requestsMonth || 0) + 1,
-      }),
-    });
-    
-    setConfigModal(null);
-    showToast(`${configModal.name} configurado com sucesso! Login social ativado.`);
+    setConnecting(configModal.name);
+    try {
+      // Save OAuth credentials to backend
+      const credentials = {
+        clientId: oauthConfig.clientId,
+        clientSecret: oauthConfig.clientSecret,
+        redirectUri: oauthConfig.redirectUri,
+        ...(oauthConfig.tenantId && { tenantId: oauthConfig.tenantId }),
+        ...(oauthConfig.teamId && { teamId: oauthConfig.teamId }),
+        ...(oauthConfig.keyId && { keyId: oauthConfig.keyId }),
+        ...(oauthConfig.privateKey && { privateKey: oauthConfig.privateKey }),
+        ...(oauthConfig.serviceId && { serviceId: oauthConfig.serviceId }),
+        ...(oauthConfig.scopes && { scopes: oauthConfig.scopes }),
+      };
+      
+      await settingsService.updateIntegrationConfig(configModal.name, credentials);
+      
+      updateIntegration(configModal.name, {
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
+        description: 'Configurado - OAuth ativo',
+        credentials,
+        metrics: mergeMetrics(configModal, {
+          requestsMonth: (configModal.metrics?.requestsMonth || 0) + 1,
+        }),
+      });
+      
+      setConfigModal(null);
+      setOauthConfig({ clientId: '', clientSecret: '', redirectUri: 'https://app.nexcrm.com/api/auth/callback', scopes: 'email profile openid' } as OAuthConfig);
+      showToast(`${configModal.name} configurado com sucesso! Login social ativado.`);
+    } catch (error) {
+      console.error('Erro ao salvar OAuth:', error);
+      showToast('Erro ao salvar credenciais. Tente novamente.', 'error');
+    } finally {
+      setConnecting(null);
+    }
   };
 
   // Handle test connection
@@ -970,27 +994,49 @@ function IntegrationsTab({ showToast }: { showToast: (msg: string, type?: Toast[
     }
   }, [catFilter, categories]);
 
-  const handleConnect = (name: string) => {
+  const handleConnect = async (name: string) => {
     const integration = integrationsData.find((i) => i.name === name);
     setConnecting(name);
-    setTimeout(() => {
+    try {
+      // Save connection to backend with API key/credentials
+      const credentials: Record<string, string> = {};
+      if (configApiKey !== 'sk_live_••••••••••••••••') {
+        credentials.apiKey = configApiKey;
+      }
+      
+      if (Object.keys(credentials).length > 0) {
+        await settingsService.updateIntegrationConfig(name, credentials);
+      }
+      
       updateIntegration(name, {
         status: 'connected',
         connectedAt: new Date().toISOString(),
         description: 'Configurado',
+        credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
         metrics: mergeMetrics(integration || { name, status: 'disconnected', icon: 'plug', description: '', category: 'all' }, {
           requestsMonth: ((integration?.metrics?.requestsMonth) || 0) + 1,
         }),
       });
-      setConnecting(null);
+      
       showToast(`${name} conectado com sucesso!`);
-    }, 1500);
+    } catch (error) {
+      console.error('Erro ao conectar integração:', error);
+      showToast('Erro ao conectar integração. Tente novamente.', 'error');
+    } finally {
+      setConnecting(null);
+    }
   };
 
-  const handleDisconnect = (name: string) => {
-    updateIntegration(name, { status: 'disconnected', connectedAt: undefined });
-    setDisconnectConfirm(null);
-    showToast(`${name} desconectado`, 'info');
+  const handleDisconnect = async (name: string) => {
+    try {
+      await settingsService.disconnectIntegration(name);
+      updateIntegration(name, { status: 'disconnected', connectedAt: undefined, credentials: undefined });
+      setDisconnectConfirm(null);
+      showToast(`${name} desconectado`, 'info');
+    } catch (error) {
+      console.error('Erro ao desconectar integração:', error);
+      showToast('Erro ao desconectar. Tente novamente.', 'error');
+    }
   };
 
   const catLabels: Record<string, string> = {

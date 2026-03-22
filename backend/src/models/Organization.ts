@@ -23,20 +23,25 @@ export interface IOrganization extends Document {
     maxLeads: number;
     maxStorage: number;
   };
-  integrations: {
-    whatsapp?: {
-      connected: boolean;
-      phoneNumberId?: string;
-      businessAccountId?: string;
-      accessToken?: string;
+  integrations: Array<{
+    id?: string;
+    name: string;
+    status: 'connected' | 'disconnected';
+    connectedAt?: Date;
+    icon?: string;
+    category?: string;
+    description?: string;
+    credentials?: {
+      [key: string]: string | undefined;
     };
-    instagram?: {
-      connected: boolean;
-      accessToken?: string;
-      pageId?: string;
+    metrics?: {
+      requestsMonth?: number;
+      successfulChecks?: number;
+      failedChecks?: number;
+      avgLatencyMs?: number;
+      lastCheckedAt?: Date;
     };
-    // Add more integrations as needed
-  };
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -72,19 +77,34 @@ const OrganizationSchema = new Schema<IOrganization>(
       maxLeads: { type: Number, default: 1000 },
       maxStorage: { type: Number, default: 1073741824 }, // 1GB in bytes
     },
-    integrations: {
-      whatsapp: {
-        connected: { type: Boolean, default: false },
-        phoneNumberId: String,
-        businessAccountId: String,
-        accessToken: String,
+    integrations: [
+      {
+        _id: false,
+        id: String,
+        name: String,
+        status: {
+          type: String,
+          enum: ['connected', 'disconnected'],
+          default: 'disconnected',
+        },
+        connectedAt: Date,
+        icon: String,
+        category: String,
+        description: String,
+        credentials: {
+          type: Map,
+          of: String,
+          default: {},
+        },
+        metrics: {
+          requestsMonth: { type: Number, default: 0 },
+          successfulChecks: { type: Number, default: 0 },
+          failedChecks: { type: Number, default: 0 },
+          avgLatencyMs: Number,
+          lastCheckedAt: Date,
+        },
       },
-      instagram: {
-        connected: { type: Boolean, default: false },
-        accessToken: String,
-        pageId: String,
-      },
-    },
+    ],
   },
   {
     timestamps: true,
