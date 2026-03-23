@@ -82,6 +82,38 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+// Bulk update status
+router.put('/bulk/status', async (req, res, next) => {
+  try {
+    const { ids, status } = req.body;
+
+    await Task.updateMany(
+      { _id: { $in: ids }, organizationId: req.organizationId },
+      { status, updatedAt: new Date() }
+    );
+
+    res.json({ message: `${ids.length} tarefas atualizadas` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Bulk delete
+router.delete('/bulk', async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+
+    await Task.deleteMany({
+      _id: { $in: ids },
+      organizationId: req.organizationId,
+    });
+
+    res.json({ message: `${ids.length} tarefas excluídas` });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get task by ID
 router.get('/:id', async (req, res, next) => {
   try {
@@ -147,6 +179,31 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
+// Update task status
+router.put('/:id/status', async (req, res, next) => {
+  try {
+    const { status } = req.body;
+
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, organizationId: req.organizationId },
+      {
+        status,
+        completedAt: status === 'done' ? new Date() : undefined,
+        updatedAt: new Date(),
+      },
+      { new: true }
+    ).populate('assignedTo', 'name email avatar');
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+
+    res.json(task);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete task
 router.delete('/:id', async (req, res, next) => {
   try {
@@ -165,38 +222,6 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
-// Bulk update status
-router.put('/bulk/status', async (req, res, next) => {
-  try {
-    const { ids, status } = req.body;
-    
-    await Task.updateMany(
-      { _id: { $in: ids }, organizationId: req.organizationId },
-      { status, updatedAt: new Date() }
-    );
-    
-    res.json({ message: `${ids.length} tarefas atualizadas` });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Bulk delete
-router.delete('/bulk', async (req, res, next) => {
-  try {
-    const { ids } = req.body;
-    
-    await Task.deleteMany({
-      _id: { $in: ids },
-      organizationId: req.organizationId,
-    });
-    
-    res.json({ message: `${ids.length} tarefas excluídas` });
-  } catch (error) {
-    next(error);
-  }
-});
-
 // Add subtask
 router.post('/:id/subtasks', async (req, res, next) => {
   try {
@@ -209,7 +234,11 @@ router.post('/:id/subtasks', async (req, res, next) => {
       return res.status(404).json({ error: 'Tarefa não encontrada' });
     }
     
-    task.subtasks.push(req.body);
+    task.subtasks.push({
+      id: `st_${Date.now()}`,
+      title: req.body.title,
+      completed: false,
+    });
     await task.save();
     
     res.json(task);
@@ -244,6 +273,27 @@ router.put('/:id/subtasks/:subtaskId/toggle', async (req, res, next) => {
   }
 });
 
+// Delete subtask
+router.delete('/:id/subtasks/:subtaskId', async (req, res, next) => {
+  try {
+    const task = await Task.findOne({
+      _id: req.params.id,
+      organizationId: req.organizationId,
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+
+    task.subtasks = task.subtasks.filter((s) => s.id !== req.params.subtaskId);
+    await task.save();
+
+    res.json(task);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Add note
 router.post('/:id/notes', async (req, res, next) => {
   try {
@@ -263,6 +313,27 @@ router.post('/:id/notes', async (req, res, next) => {
     });
     await task.save();
     
+    res.json(task);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete note
+router.delete('/:id/notes/:noteId', async (req, res, next) => {
+  try {
+    const task = await Task.findOne({
+      _id: req.params.id,
+      organizationId: req.organizationId,
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+
+    task.notes = task.notes.filter((n) => n.id !== req.params.noteId);
+    await task.save();
+
     res.json(task);
   } catch (error) {
     next(error);

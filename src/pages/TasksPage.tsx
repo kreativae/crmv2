@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useStore } from '../store';
 import { cn } from '../utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,7 @@ import {
   ChevronLeft, ChevronRight, Play, RotateCcw,
   SortAsc, SortDesc, Timer
 } from 'lucide-react';
-import type { Task, TaskStatus, TaskPriority, TaskSubtask, TaskNote } from '../types';
+import type { Task, TaskStatus, TaskPriority } from '../types';
 
 /* ───── Config Maps ───── */
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string; border: string; icon: string; gradient: string }> = {
@@ -418,7 +418,7 @@ function QuickViewPanel({ task, onClose, onEdit, onDelete, onDuplicate }: {
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
-  const { updateTaskStatus, updateTask } = useStore();
+  const { updateTask } = useStore();
   const [activeTab, setActiveTab] = useState<'details' | 'subtasks' | 'notes' | 'activity'>('details');
   const [newSubtask, setNewSubtask] = useState('');
   const [newNote, setNewNote] = useState('');
@@ -431,41 +431,53 @@ function QuickViewPanel({ task, onClose, onEdit, onDelete, onDuplicate }: {
   const activities = task.activities || [];
   const completedSubtasks = subtasks.filter(s => s.completed).length;
 
-  const handleToggleSubtask = (subtaskId: string) => {
-    const updated = subtasks.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s);
-    updateTask(task._id, { subtasks: updated });
+  const handleToggleSubtask = async (subtaskId: string) => {
+    try {
+      const updatedTask = await taskService.toggleSubtask(task._id, subtaskId);
+      updateTask(task._id, updatedTask);
+    } catch (err) {
+      logger.error('Erro ao alternar subtarefa:', err);
+    }
   };
 
-  // Suppress unused warning for updateTaskStatus
-  void updateTaskStatus;
-
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtask.trim()) return;
-    const updated: TaskSubtask[] = [...subtasks, { id: `st_${Date.now()}`, title: newSubtask.trim(), completed: false }];
-    updateTask(task._id, { subtasks: updated });
-    setNewSubtask('');
+    try {
+      const updatedTask = await taskService.addSubtask(task._id, newSubtask.trim());
+      updateTask(task._id, updatedTask);
+      setNewSubtask('');
+    } catch (err) {
+      logger.error('Erro ao adicionar subtarefa:', err);
+    }
   };
 
-  const handleDeleteSubtask = (subtaskId: string) => {
-    const updated = subtasks.filter(s => s.id !== subtaskId);
-    updateTask(task._id, { subtasks: updated });
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    try {
+      const updatedTask = await taskService.deleteSubtask(task._id, subtaskId);
+      updateTask(task._id, updatedTask);
+    } catch (err) {
+      logger.error('Erro ao excluir subtarefa:', err);
+    }
   };
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    const updated: TaskNote[] = [...notes, { 
-      id: `n_${Date.now()}`, 
-      content: newNote.trim(), 
-      author: 'Você', 
-      createdAt: new Date().toLocaleString('pt-BR') 
-    }];
-    updateTask(task._id, { notes: updated });
-    setNewNote('');
+    try {
+      const updatedTask = await taskService.addNote(task._id, newNote.trim());
+      updateTask(task._id, updatedTask);
+      setNewNote('');
+    } catch (err) {
+      logger.error('Erro ao adicionar nota:', err);
+    }
   };
 
-  const handleDeleteNote = (noteId: string) => {
-    const updated = notes.filter(n => n.id !== noteId);
-    updateTask(task._id, { notes: updated });
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const updatedTask = await taskService.deleteNote(task._id, noteId);
+      updateTask(task._id, updatedTask);
+    } catch (err) {
+      logger.error('Erro ao excluir nota:', err);
+    }
   };
 
   const tabs = [
@@ -589,7 +601,14 @@ function QuickViewPanel({ task, onClose, onEdit, onDelete, onDuplicate }: {
                           key={s}
                           whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
-                          onClick={() => updateTaskStatus(task._id, s)}
+                          onClick={async () => {
+                            try {
+                              const updatedTask = await taskService.updateStatus(task._id, s);
+                              updateTask(task._id, updatedTask);
+                            } catch (err) {
+                              logger.error('Erro ao atualizar status:', err);
+                            }
+                          }}
                           className={cn(
                             'relative flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition-all border-2',
                             isActive
@@ -1380,31 +1399,63 @@ interface FilterState {
 
 /* ───── Main TasksPage ───── */
 export function TasksPage() {
-  const { tasks, updateTaskStatus, updateTask, addTask, deleteTask } = useStore();
+  const { tasks, updateTask, addTask, deleteTask } = useStore();
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'calendar'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'title' | 'createdAt'>('dueDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [_loading, setLoading] = useState(false);
+  const isRefreshingRef = useRef(false);
+
+  const refreshTasksFromServer = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+
+    try {
+      isRefreshingRef.current = true;
+      setLoading(true);
+      const response = await taskService.getAll();
+      const serverTasks = response.data || [];
+      const currentTasks = useStore.getState().tasks;
+      currentTasks.forEach(t => deleteTask(t._id));
+      serverTasks.forEach(t => addTask(t));
+    } catch (err) {
+      logger.error('Erro ao sincronizar tarefas:', err);
+    } finally {
+      setLoading(false);
+      isRefreshingRef.current = false;
+    }
+  }, [addTask, deleteTask]);
 
   // Load tasks from backend on mount
   useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        setLoading(true);
-        const response = await taskService.getAll();
-        const serverTasks = response.data || [];
-        const currentTasks = useStore.getState().tasks;
-        currentTasks.forEach(t => deleteTask(t._id));
-        serverTasks.forEach(t => addTask(t));
-      } catch (err) {
-        logger.error('Erro ao carregar tarefas:', err);
-      } finally {
-        setLoading(false);
+    void refreshTasksFromServer();
+  }, [refreshTasksFromServer]);
+
+  // Auto-sync with backend while user is on Tasks page.
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void refreshTasksFromServer();
+    }, 20000);
+
+    const handleFocus = () => {
+      void refreshTasksFromServer();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshTasksFromServer();
       }
     };
-    loadTasks();
-  }, []);
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refreshTasksFromServer]);
   
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -1506,6 +1557,21 @@ export function TasksPage() {
 
   const columns: TaskStatus[] = ['todo', 'in_progress', 'done'];
 
+  const buildApiPayload = (data: Partial<Task>): Partial<Task> => {
+    const payload: Partial<Task> = {
+      ...data,
+      dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
+    };
+
+    if (!payload.assignedTo) delete payload.assignedTo;
+    if (!payload.assignedName) delete payload.assignedName;
+    if (!payload.leadId) delete payload.leadId;
+    if (!payload.leadName) delete payload.leadName;
+    if (!payload.description) delete payload.description;
+
+    return payload;
+  };
+
   const quickViewTask = quickViewTaskId ? tasks.find(t => t._id === quickViewTaskId) : null;
   const editingTask = editingTaskId ? tasks.find(t => t._id === editingTaskId) : null;
   const deletingTask = deletingTaskId ? tasks.find(t => t._id === deletingTaskId) : null;
@@ -1524,42 +1590,20 @@ export function TasksPage() {
   // Handlers
   const handleCreateTask = async (data: Partial<Task>) => {
     try {
-      const created = await taskService.create(data);
+      const created = await taskService.create(buildApiPayload(data));
       addTask(created);
     } catch (err) {
       logger.error('Erro ao criar tarefa:', err);
-      // Fallback local
-      const newTask: Task = {
-        _id: `t_${Date.now()}`,
-        organizationId: 'org_1',
-        title: data.title || '',
-        description: data.description || '',
-        assignedTo: data.assignedTo || '',
-        assignedName: data.assignedName || '',
-        leadId: undefined,
-        leadName: data.leadName,
-        priority: data.priority || 'medium',
-        status: data.status || 'todo',
-        dueDate: data.dueDate || getTodayStr(),
-        createdAt: getTodayStr(),
-        tags: data.tags || [],
-        estimatedHours: data.estimatedHours || 1,
-        subtasks: [],
-        notes: [],
-        activities: [{ id: `a_${Date.now()}`, action: 'Tarefa criada', user: 'Você', timestamp: new Date().toLocaleString('pt-BR') }],
-      };
-      addTask(newTask);
     }
   };
 
   const handleUpdateTask = async (data: Partial<Task>) => {
     if (editingTaskId) {
       try {
-        const updated = await taskService.update(editingTaskId, data);
+        const updated = await taskService.update(editingTaskId, buildApiPayload(data));
         updateTask(editingTaskId, updated);
       } catch (err) {
         logger.error('Erro ao atualizar tarefa:', err);
-        updateTask(editingTaskId, data);
       }
     }
   };
@@ -1632,11 +1676,20 @@ export function TasksPage() {
     try {
       const ids = Array.from(selectedIds);
       await taskService.bulkUpdate(ids, { status });
-      ids.forEach(id => updateTaskStatus(id, status));
+      ids.forEach(id => updateTask(id, { status }));
     } catch (err) {
       logger.error('Erro ao atualizar tarefas:', err);
     } finally {
       setSelectedIds(new Set());
+    }
+  };
+
+  const handleChangeTaskStatus = async (taskId: string, status: TaskStatus) => {
+    try {
+      const updated = await taskService.updateStatus(taskId, status);
+      updateTask(taskId, updated);
+    } catch (err) {
+      logger.error('Erro ao atualizar status da tarefa:', err);
     }
   };
 
@@ -1856,7 +1909,9 @@ export function TasksPage() {
                     onDragOver={(e) => { e.preventDefault(); setDragOverCol(status); }}
                     onDragLeave={() => setDragOverCol(null)}
                     onDrop={() => {
-                      if (draggedTask) updateTaskStatus(draggedTask, status);
+                      if (draggedTask) {
+                        void handleChangeTaskStatus(draggedTask, status);
+                      }
                       setDraggedTask(null);
                       setDragOverCol(null);
                     }}
