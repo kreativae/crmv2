@@ -8,6 +8,10 @@ export interface CalendarFilters {
   assignedTo?: string;
 }
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 export const calendarService = {
   async getAll(filters: CalendarFilters = {}): Promise<{ data: CalendarEvent[] }> {
     const params = new URLSearchParams();
@@ -22,17 +26,17 @@ export const calendarService = {
 
   async getById(id: string): Promise<CalendarEvent> {
     const response = await api.get(`/calendar/${id}`);
-    return response.data.data;
+    return unwrap<CalendarEvent>(response);
   },
 
   async create(event: Partial<CalendarEvent>): Promise<CalendarEvent> {
     const response = await api.post('/calendar', event);
-    return response.data.data;
+    return unwrap<CalendarEvent>(response);
   },
 
   async update(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
     const response = await api.put(`/calendar/${id}`, updates);
-    return response.data.data;
+    return unwrap<CalendarEvent>(response);
   },
 
   async delete(id: string): Promise<void> {
@@ -40,18 +44,19 @@ export const calendarService = {
   },
 
   async getByRange(start: string, end: string): Promise<CalendarEvent[]> {
-    const response = await api.get(`/calendar/range?start=${start}&end=${end}`);
-    return response.data.data;
+    const response = await api.get(`/calendar?startDate=${start}&endDate=${end}`);
+    return unwrap<CalendarEvent[]>(response);
   },
 
   async getUpcoming(days: number = 7): Promise<CalendarEvent[]> {
     const response = await api.get(`/calendar/upcoming?days=${days}`);
-    return response.data.data;
+    return unwrap<CalendarEvent[]>(response);
   },
 
   async toggleComplete(id: string): Promise<CalendarEvent> {
-    const response = await api.put(`/calendar/${id}/toggle-complete`);
-    return response.data.data;
+    const current = await this.getById(id);
+    const response = await api.put(`/calendar/${id}`, { completed: !current.completed });
+    return unwrap<CalendarEvent>(response);
   },
 
   async getStats(): Promise<{
@@ -61,7 +66,7 @@ export const calendarService = {
     byCategory: Record<string, number>;
   }> {
     const response = await api.get('/calendar/stats');
-    return response.data.data;
+    return unwrap(response);
   },
 };
 

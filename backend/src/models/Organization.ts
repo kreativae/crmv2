@@ -42,6 +42,31 @@ export interface IOrganization extends Document {
       lastCheckedAt?: Date;
     };
   }>;
+  roles?: Record<string, string[]>;
+  notificationSettings?: {
+    newLead: { email: boolean; push: boolean; inApp: boolean };
+    newMessage: { email: boolean; push: boolean; inApp: boolean };
+    dealClosed: { email: boolean; push: boolean; inApp: boolean };
+    taskOverdue: { email: boolean; push: boolean; inApp: boolean };
+    slaExceeded: { email: boolean; push: boolean; inApp: boolean };
+  };
+  webhooks?: Array<{
+    id: string;
+    url: string;
+    events: string[];
+    active: boolean;
+    secret: string;
+    createdAt: Date;
+    lastTriggered?: Date;
+    failCount: number;
+  }>;
+  apiKeys?: Array<{
+    id: string;
+    name: string;
+    key: string;
+    createdAt: Date;
+    lastUsed?: Date | null;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +128,61 @@ const OrganizationSchema = new Schema<IOrganization>(
           avgLatencyMs: Number,
           lastCheckedAt: Date,
         },
+      },
+    ],
+    roles: {
+      type: Map,
+      of: [String],
+      default: {},
+    },
+    notificationSettings: {
+      newLead: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+        inApp: { type: Boolean, default: true },
+      },
+      newMessage: {
+        email: { type: Boolean, default: false },
+        push: { type: Boolean, default: true },
+        inApp: { type: Boolean, default: true },
+      },
+      dealClosed: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+        inApp: { type: Boolean, default: true },
+      },
+      taskOverdue: {
+        email: { type: Boolean, default: false },
+        push: { type: Boolean, default: false },
+        inApp: { type: Boolean, default: true },
+      },
+      slaExceeded: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+        inApp: { type: Boolean, default: true },
+      },
+    },
+    webhooks: [
+      {
+        _id: false,
+        id: { type: String, required: true },
+        url: { type: String, required: true },
+        events: { type: [String], default: [] },
+        active: { type: Boolean, default: true },
+        secret: { type: String, default: '' },
+        createdAt: { type: Date, default: Date.now },
+        lastTriggered: Date,
+        failCount: { type: Number, default: 0 },
+      },
+    ],
+    apiKeys: [
+      {
+        _id: false,
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        key: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        lastUsed: { type: Date, default: null },
       },
     ],
   },

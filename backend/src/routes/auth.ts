@@ -25,6 +25,8 @@ router.get('/google', authController.googleAuth);
 router.get('/google/callback', authController.googleCallback);
 router.get('/microsoft', authController.microsoftAuth);
 router.get('/microsoft/callback', authController.microsoftCallback);
+router.get('/apple', authController.appleAuth);
+router.get('/apple/callback', authController.appleCallback);
 router.post('/apple', authController.appleAuth);
 router.post('/apple/callback', authController.appleCallback);
 

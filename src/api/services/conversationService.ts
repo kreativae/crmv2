@@ -17,6 +17,10 @@ export interface SendMessageData {
   isInternal?: boolean;
 }
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 export const conversationService = {
   async getAll(filters: ConversationFilters = {}): Promise<{ data: Conversation[]; pagination: { total: number } }> {
     const params = new URLSearchParams();
@@ -31,7 +35,7 @@ export const conversationService = {
 
   async getById(id: string): Promise<Conversation> {
     const response = await api.get(`/conversations/${id}`);
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async create(data: {
@@ -41,12 +45,12 @@ export const conversationService = {
     channel: Channel;
   }): Promise<Conversation> {
     const response = await api.post('/conversations', data);
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async sendMessage(conversationId: string, data: SendMessageData): Promise<Conversation> {
     const response = await api.post(`/conversations/${conversationId}/messages`, data);
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async getMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<{
@@ -59,22 +63,22 @@ export const conversationService = {
 
   async assign(conversationId: string, userId: string): Promise<Conversation> {
     const response = await api.put(`/conversations/${conversationId}/assign`, { userId });
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async transfer(conversationId: string, toUserId: string, note?: string): Promise<Conversation> {
-    const response = await api.post(`/conversations/${conversationId}/transfer`, { toUserId, note });
-    return response.data.data;
+    const response = await api.put(`/conversations/${conversationId}/transfer`, { toUserId, note });
+    return unwrap<Conversation>(response);
   },
 
   async close(conversationId: string): Promise<Conversation> {
     const response = await api.put(`/conversations/${conversationId}/close`);
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async reopen(conversationId: string): Promise<Conversation> {
     const response = await api.put(`/conversations/${conversationId}/reopen`);
-    return response.data.data;
+    return unwrap<Conversation>(response);
   },
 
   async markAsRead(conversationId: string): Promise<void> {
@@ -82,13 +86,17 @@ export const conversationService = {
   },
 
   async addTag(conversationId: string, tag: string): Promise<Conversation> {
-    const response = await api.post(`/conversations/${conversationId}/tags`, { tag });
-    return response.data.data;
+    const conversation = await this.getById(conversationId);
+    const tags = Array.from(new Set([...(conversation as any).contactTags || [], tag]));
+    const response = await api.put(`/conversations/${conversationId}/tags`, { tags });
+    return unwrap<Conversation>(response);
   },
 
   async removeTag(conversationId: string, tag: string): Promise<Conversation> {
-    const response = await api.delete(`/conversations/${conversationId}/tags/${encodeURIComponent(tag)}`);
-    return response.data.data;
+    const conversation = await this.getById(conversationId);
+    const tags = ((conversation as any).contactTags || []).filter((t: string) => t !== tag);
+    const response = await api.put(`/conversations/${conversationId}/tags`, { tags });
+    return unwrap<Conversation>(response);
   },
 
   async getStats(): Promise<{
@@ -100,7 +108,7 @@ export const conversationService = {
     avgResponseTime: number;
   }> {
     const response = await api.get('/conversations/stats');
-    return response.data.data;
+    return unwrap(response);
   },
 
   async exportChat(conversationId: string): Promise<Blob> {

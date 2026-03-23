@@ -64,7 +64,7 @@ function getActionInfo(type: ActionType) {
 }
 
 export function AutomationPage() {
-  const { automations, automationExecutions, addAutomation, updateAutomation, deleteAutomation, toggleAutomation, duplicateAutomation, addExecution } = useStore();
+  const { automations, automationExecutions, addAutomation, updateAutomation, deleteAutomation, addExecution } = useStore();
 
   // Load automations from backend on mount
   useEffect(() => {
@@ -196,25 +196,7 @@ export function AutomationPage() {
       resetForm();
     } catch (err) {
       logger.error('Erro ao criar automação:', err);
-      // Fallback local
-      const newAutomation: AutomationFlow = {
-        _id: `a_${Date.now()}`,
-        name: formName,
-        description: formDescription,
-        trigger: formTrigger,
-        conditions: formConditions,
-        actions: formActions,
-        active: false,
-        executionCount: 0,
-        successCount: 0,
-        failCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      addAutomation(newAutomation);
-      setShowCreateModal(false);
-      setSelectedAuto(newAutomation._id);
-      resetForm();
+      showToast('Erro ao criar automação no servidor.', 'error');
     }
   };
 
@@ -231,13 +213,8 @@ export function AutomationPage() {
       updateAutomation(editingAutomation._id, updated);
     } catch (err) {
       logger.error('Erro ao atualizar automação:', err);
-      updateAutomation(editingAutomation._id, {
-        name: formName,
-        description: formDescription,
-        trigger: formTrigger,
-        conditions: formConditions,
-        actions: formActions,
-      });
+      showToast('Erro ao atualizar automação no servidor.', 'error');
+      return;
     }
     setShowEditModal(false);
     setEditingAutomation(null);
@@ -251,7 +228,8 @@ export function AutomationPage() {
       deleteAutomation(selectedAuto);
     } catch (err) {
       logger.error('Erro ao excluir automação:', err);
-      deleteAutomation(selectedAuto);
+      showToast('Erro ao excluir automação no servidor.', 'error');
+      return;
     }
     setSelectedAuto(null);
     setShowDeleteModal(false);
@@ -264,8 +242,7 @@ export function AutomationPage() {
       setSelectedAuto(created._id);
     } catch (err) {
       logger.error('Erro ao duplicar automação:', err);
-      const newAuto = duplicateAutomation(id);
-      setSelectedAuto(newAuto._id);
+      showToast('Erro ao duplicar automação no servidor.', 'error');
     }
     setQuickActionsId(null);
   };
@@ -278,31 +255,17 @@ export function AutomationPage() {
       setShowTestModal(false);
     } catch (err) {
       logger.error('Erro ao testar automação:', err);
-      // Fallback: simulate locally
-      const newExecution = {
-        _id: `ex_${Date.now()}`,
-        automationId: selectedAuto,
-        status: 'running' as const,
-        triggeredBy: 'Teste Manual',
-        startedAt: new Date().toISOString(),
-        actionsExecuted: 0,
-      };
-      addExecution(newExecution);
-      setShowTestModal(false);
-      setTimeout(() => {
-        useStore.setState((state) => ({
-          automationExecutions: state.automationExecutions.map(e => 
-            e._id === newExecution._id 
-              ? { ...e, status: 'success' as const, completedAt: new Date().toISOString(), actionsExecuted: selected?.actions.length || 0 }
-              : e
-          ),
-          automations: state.automations.map(a => 
-            a._id === selectedAuto 
-              ? { ...a, executionCount: a.executionCount + 1, successCount: a.successCount + 1, lastRun: 'Agora' }
-              : a
-          ),
-        }));
-      }, 2000);
+      showToast('Erro ao executar teste no servidor.', 'error');
+    }
+  };
+
+  const handleToggleAutomation = async (id: string) => {
+    try {
+      const updated = await automationService.toggle(id);
+      updateAutomation(id, updated);
+    } catch (err) {
+      logger.error('Erro ao alternar automação:', err);
+      showToast('Erro ao alterar status da automação.', 'error');
     }
   };
 
@@ -1313,7 +1276,7 @@ export function AutomationPage() {
 
                       {/* Toggle */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleAutomation(auto._id); }}
+                        onClick={(e) => { e.stopPropagation(); void handleToggleAutomation(auto._id); }}
                         className={cn(
                           'toggle-switch relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
                           auto.active ? 'bg-brand-600' : 'bg-gray-300'
@@ -1638,7 +1601,7 @@ export function AutomationPage() {
                           <p className="text-xs text-gray-500">Ativar ou desativar execução</p>
                         </div>
                         <button
-                          onClick={() => toggleAutomation(selected._id)}
+                          onClick={() => { void handleToggleAutomation(selected._id); }}
                           className={cn(
                             'toggle-switch relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
                             selected.active ? 'bg-brand-600' : 'bg-gray-300'

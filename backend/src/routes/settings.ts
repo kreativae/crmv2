@@ -196,6 +196,159 @@ router.put('/users/:id/toggle', authorize('owner', 'admin'), async (req, res, ne
   }
 });
 
+// ============ Roles & Notifications ============
+
+router.get('/roles', async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    res.json((org as any)?.roles || {});
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/roles', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const roles = req.body?.roles || req.body || {};
+    const org = await Organization.findByIdAndUpdate(
+      req.organizationId,
+      { roles, updatedAt: new Date() },
+      { new: true }
+    );
+
+    res.json((org as any)?.roles || {});
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/notifications', async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    res.json((org as any)?.notificationSettings || {});
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/notifications', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findByIdAndUpdate(
+      req.organizationId,
+      { notificationSettings: req.body, updatedAt: new Date() },
+      { new: true }
+    );
+
+    res.json((org as any)?.notificationSettings || {});
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============ Webhooks ============
+
+router.get('/webhooks', async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    res.json((org as any)?.webhooks || []);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/webhooks', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const webhook = {
+      id: `wh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      url: req.body.url,
+      events: req.body.events || [],
+      active: req.body.active !== false,
+      secret: req.body.secret || Math.random().toString(36).slice(2),
+      createdAt: new Date(),
+      failCount: 0,
+    };
+
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    const orgAny = org as any;
+    orgAny.webhooks = orgAny.webhooks || [];
+    orgAny.webhooks.push(webhook);
+    await org.save();
+
+    res.status(201).json(webhook);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/webhooks/:id', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    const orgAny = org as any;
+    const index = (orgAny.webhooks || []).findIndex((w: any) => w.id === req.params.id || w._id?.toString() === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Webhook não encontrado' });
+    }
+
+    orgAny.webhooks[index] = {
+      ...orgAny.webhooks[index],
+      ...req.body,
+    };
+
+    await org.save();
+    res.json(orgAny.webhooks[index]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/webhooks/:id', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    const orgAny = org as any;
+    orgAny.webhooks = (orgAny.webhooks || []).filter((w: any) => w.id !== req.params.id && w._id?.toString() !== req.params.id);
+    await org.save();
+
+    res.json({ message: 'Webhook excluído' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/webhooks/:id/test', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const start = Date.now();
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    const orgAny = org as any;
+    const webhook = (orgAny.webhooks || []).find((w: any) => w.id === req.params.id || w._id?.toString() === req.params.id);
+    if (!webhook) {
+      return res.status(404).json({ error: 'Webhook não encontrado' });
+    }
+
+    webhook.lastTriggered = new Date();
+    await org.save();
+
+    res.json({ success: true, statusCode: 200, responseTime: Date.now() - start });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ============ Integrations ============
 
 // Get integrations
@@ -278,6 +431,47 @@ router.put('/integrations/:id', authorize('owner', 'admin'), async (req, res, ne
   }
 });
 
+// Compatibility route used by frontend settings service
+router.put('/integrations/:id/config', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    const updateData: any = {
+      credentials: encryptionUtils.encryptCredentials(req.body || {}),
+      status: 'connected',
+      connectedAt: new Date(),
+    };
+
+    const orgAny = org as any;
+    const integrationIndex = orgAny.integrations.findIndex(
+      (i: any) => i.id === req.params.id || i.name === req.params.id
+    );
+
+    if (integrationIndex === -1) {
+      orgAny.integrations.push({ id: req.params.id, name: req.params.id, ...updateData });
+    } else {
+      orgAny.integrations[integrationIndex] = {
+        ...orgAny.integrations[integrationIndex],
+        ...updateData,
+      };
+    }
+
+    await org.save();
+
+    const saved = orgAny.integrations.find((i: any) => i.id === req.params.id || i.name === req.params.id);
+    if (saved?.credentials) {
+      saved.credentials = encryptionUtils.decryptCredentials(saved.credentials);
+    }
+
+    res.json(saved);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Disconnect integration
 router.delete('/integrations/:id', authorize('owner', 'admin'), async (req, res, next) => {
   try {
@@ -302,6 +496,63 @@ router.delete('/integrations/:id', authorize('owner', 'admin'), async (req, res,
     });
     
     res.json({ message: 'Integração desconectada' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Compatibility route used by frontend settings service
+router.post('/integrations/:id/disconnect', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organização não encontrada' });
+    }
+
+    org.integrations = (org as any).integrations.filter(
+      (i: any) => i.id !== req.params.id && i.name !== req.params.id
+    );
+    await org.save();
+
+    res.json({ message: 'Integração desconectada' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============ API Token (Compatibility) ============
+
+router.get('/api-token', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const org = await Organization.findById(req.organizationId);
+    const firstKey = (org as any)?.apiKeys?.[0]?.key || '';
+    res.json(firstKey);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/api-token/regenerate', authorize('owner', 'admin'), async (req, res, next) => {
+  try {
+    const key = `nex_${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+    await Organization.findByIdAndUpdate(
+      req.organizationId,
+      {
+        $set: {
+          apiKeys: [
+            {
+              id: 'default',
+              name: 'Default API Token',
+              key,
+              createdAt: new Date(),
+              lastUsed: null,
+            },
+          ],
+        },
+      }
+    );
+
+    res.json(key);
   } catch (error) {
     next(error);
   }

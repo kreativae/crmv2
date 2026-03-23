@@ -1,5 +1,9 @@
 import api from '../client';
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 export interface DashboardData {
   totalLeads: number;
   totalClients: number;
@@ -62,38 +66,38 @@ export interface CohortData {
 export const analyticsService = {
   async getDashboard(period: '7d' | '30d' | '90d' | '12m' = '30d'): Promise<DashboardData> {
     const response = await api.get(`/analytics/dashboard?period=${period}`);
-    return response.data.data;
+    return unwrap<DashboardData>(response);
   },
 
   async getFunnel(pipelineId?: string): Promise<FunnelData> {
     const params = pipelineId ? `?pipelineId=${pipelineId}` : '';
     const response = await api.get(`/analytics/funnel${params}`);
-    return response.data.data;
+    return unwrap<FunnelData>(response);
   },
 
   async getSellers(period: '7d' | '30d' | '90d' | '12m' = '30d'): Promise<SellerPerformance[]> {
     const response = await api.get(`/analytics/sellers?period=${period}`);
-    return response.data.data;
+    return unwrap<SellerPerformance[]>(response);
   },
 
   async getChannels(period: '7d' | '30d' | '90d' | '12m' = '30d'): Promise<ChannelPerformance[]> {
     const response = await api.get(`/analytics/channels?period=${period}`);
-    return response.data.data;
+    return unwrap<ChannelPerformance[]>(response);
   },
 
   async getCohort(months: number = 6): Promise<CohortData> {
     const response = await api.get(`/analytics/cohort?months=${months}`);
-    return response.data.data;
+    return unwrap<CohortData>(response);
   },
 
   async getLeadsBySource(period: '7d' | '30d' | '90d' | '12m' = '30d'): Promise<Record<string, number>> {
-    const response = await api.get(`/analytics/leads-by-source?period=${period}`);
-    return response.data.data;
+    const dashboard = await this.getDashboard(period);
+    return dashboard.leadsBySource || {};
   },
 
   async getRevenueByMonth(year: number): Promise<Array<{ month: string; revenue: number; expenses: number }>> {
-    const response = await api.get(`/analytics/revenue-by-month?year=${year}`);
-    return response.data.data;
+    const response = await api.get(`/analytics/revenue-trends?year=${year}`);
+    return unwrap<Array<{ month: string; revenue: number; expenses: number }>>(response);
   },
 
   async exportReport(
@@ -101,7 +105,7 @@ export const analyticsService = {
     format: 'csv' | 'pdf' | 'json',
     period: '7d' | '30d' | '90d' | '12m' = '30d'
   ): Promise<Blob> {
-    const response = await api.get(`/analytics/export?type=${type}&format=${format}&period=${period}`, {
+    const response = await api.get(`/analytics/export/${type}?format=${format}&period=${period}`, {
       responseType: 'blob',
     });
     return response.data;

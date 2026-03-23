@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { authService } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -85,6 +85,14 @@ export function LoginPage() {
   const [selectedPlan, setSelectedPlan] = useState('Business');
   const [errorMsg, setErrorMsg] = useState('');
 
+  useEffect(() => {
+    const storedOAuthError = localStorage.getItem('nexcrm:oauth:error');
+    if (storedOAuthError) {
+      setErrorMsg(storedOAuthError);
+      localStorage.removeItem('nexcrm:oauth:error');
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -135,6 +143,20 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'microsoft' | 'apple') => {
+    setIsLoading(true);
+    setErrorMsg('');
+
+    const base = (import.meta as any).env?.VITE_API_URL as string;
+    if (!base) {
+      setErrorMsg('VITE_API_URL não configurado para login social.');
+      setIsLoading(false);
+      return;
+    }
+
+    window.location.assign(`${base}/auth/${provider}`);
   };
 
   const strength = getPasswordStrength(activeTab === 'register' ? registerPass : password);
@@ -549,13 +571,7 @@ export function LoginPage() {
                     ].map((item) => (
                       <motion.button
                         key={item.name}
-                        onClick={() => {
-                          // TODO: Quando backend estiver pronto, usar:
-                          // window.location.href = `/api/auth/${item.provider}`;
-                          
-                          // Por enquanto, simular loading e mostrar alerta
-                          alert(`Login com ${item.name} será implementado com o backend.\n\nVeja o arquivo INTEGRACAO_LOGIN_SOCIAL.md para instruções completas.`);
-                        }}
+                        onClick={() => { void handleSocialLogin(item.provider); }}
                         whileHover={{ scale: 1.03, y: -1 }}
                         whileTap={{ scale: 0.97 }}
                         className="flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm"

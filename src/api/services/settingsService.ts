@@ -30,32 +30,36 @@ export interface NotificationSettings {
   slaExceeded: { email: boolean; push: boolean; inApp: boolean };
 }
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 export const settingsService = {
   // Organization
   async getOrganization(): Promise<Organization> {
     const response = await api.get('/settings/organization');
-    return response.data.data;
+    return unwrap<Organization>(response);
   },
 
   async updateOrganization(updates: Partial<Organization>): Promise<Organization> {
     const response = await api.put('/settings/organization', updates);
-    return response.data.data;
+    return unwrap<Organization>(response);
   },
 
   // Users
   async getUsers(): Promise<SettingsUser[]> {
     const response = await api.get('/settings/users');
-    return response.data.data;
+    return unwrap<SettingsUser[]>(response);
   },
 
   async inviteUser(data: { name: string; email: string; role: User['role'] }): Promise<SettingsUser> {
     const response = await api.post('/settings/users/invite', data);
-    return response.data.data;
+    return unwrap<any>(response).user || unwrap<SettingsUser>(response);
   },
 
   async updateUser(id: string, updates: Partial<SettingsUser>): Promise<SettingsUser> {
     const response = await api.put(`/settings/users/${id}`, updates);
-    return response.data.data;
+    return unwrap<SettingsUser>(response);
   },
 
   async deleteUser(id: string): Promise<void> {
@@ -69,7 +73,7 @@ export const settingsService = {
   // Permissions
   async getRoles(): Promise<Record<string, string[]>> {
     const response = await api.get('/settings/roles');
-    return response.data.data;
+    return unwrap<Record<string, string[]>>(response);
   },
 
   async updateRoles(roles: Record<string, string[]>): Promise<void> {
@@ -79,12 +83,16 @@ export const settingsService = {
   // Integrations
   async getIntegrations(): Promise<IntegrationConfig[]> {
     const response = await api.get('/settings/integrations');
-    return response.data.data;
+    return unwrap<IntegrationConfig[]>(response);
   },
 
   async connectIntegration(name: string, config?: Record<string, string>): Promise<IntegrationConfig> {
-    const response = await api.post(`/settings/integrations/${name}/connect`, config);
-    return response.data.data;
+    const response = await api.put(`/settings/integrations/${name}`, {
+      ...config,
+      status: 'connected',
+      connectedAt: new Date().toISOString(),
+    });
+    return unwrap<IntegrationConfig>(response);
   },
 
   async disconnectIntegration(name: string): Promise<void> {
@@ -93,23 +101,23 @@ export const settingsService = {
 
   async updateIntegrationConfig(name: string, config: Record<string, string>): Promise<IntegrationConfig> {
     const response = await api.put(`/settings/integrations/${name}/config`, config);
-    return response.data.data;
+    return unwrap<IntegrationConfig>(response);
   },
 
   // Webhooks
   async getWebhooks(): Promise<WebhookEndpoint[]> {
     const response = await api.get('/settings/webhooks');
-    return response.data.data;
+    return unwrap<WebhookEndpoint[]>(response);
   },
 
   async createWebhook(data: Omit<WebhookEndpoint, '_id' | 'createdAt' | 'failCount'>): Promise<WebhookEndpoint> {
     const response = await api.post('/settings/webhooks', data);
-    return response.data.data;
+    return unwrap<WebhookEndpoint>(response);
   },
 
   async updateWebhook(id: string, updates: Partial<WebhookEndpoint>): Promise<WebhookEndpoint> {
     const response = await api.put(`/settings/webhooks/${id}`, updates);
-    return response.data.data;
+    return unwrap<WebhookEndpoint>(response);
   },
 
   async deleteWebhook(id: string): Promise<void> {
@@ -118,18 +126,18 @@ export const settingsService = {
 
   async testWebhook(id: string): Promise<{ success: boolean; statusCode: number; responseTime: number }> {
     const response = await api.post(`/settings/webhooks/${id}/test`);
-    return response.data.data;
+    return unwrap<{ success: boolean; statusCode: number; responseTime: number }>(response);
   },
 
   // API Tokens
   async getApiToken(): Promise<string> {
     const response = await api.get('/settings/api-token');
-    return response.data.data;
+    return unwrap<string>(response);
   },
 
   async regenerateApiToken(): Promise<string> {
     const response = await api.post('/settings/api-token/regenerate');
-    return response.data.data;
+    return unwrap<string>(response);
   },
 
   // Branding
@@ -139,7 +147,7 @@ export const settingsService = {
     darkMode?: boolean;
   }): Promise<Organization> {
     const response = await api.put('/settings/branding', data);
-    return response.data.data;
+    return unwrap<Organization>(response);
   },
 
   async uploadLogo(file: File): Promise<string> {
@@ -148,13 +156,13 @@ export const settingsService = {
     const response = await api.post('/settings/branding/logo', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data.data.url;
+    return unwrap<any>(response)?.url;
   },
 
   // Notifications
   async getNotificationSettings(): Promise<NotificationSettings> {
     const response = await api.get('/settings/notifications');
-    return response.data.data;
+    return unwrap<NotificationSettings>(response);
   },
 
   async updateNotificationSettings(settings: NotificationSettings): Promise<void> {

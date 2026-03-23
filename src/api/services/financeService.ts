@@ -14,6 +14,10 @@ export interface FinanceFilters {
   search?: string;
 }
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 export const financeService = {
   async getAll(filters: FinanceFilters = {}): Promise<{ data: FinanceRecord[]; pagination: { total: number; pages: number } }> {
     const params = new URLSearchParams();
@@ -28,17 +32,17 @@ export const financeService = {
 
   async getById(id: string): Promise<FinanceRecord> {
     const response = await api.get(`/finance/${id}`);
-    return response.data.data;
+    return unwrap<FinanceRecord>(response);
   },
 
   async create(record: Partial<FinanceRecord>): Promise<FinanceRecord> {
     const response = await api.post('/finance', record);
-    return response.data.data;
+    return unwrap<FinanceRecord>(response);
   },
 
   async update(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord> {
     const response = await api.put(`/finance/${id}`, updates);
-    return response.data.data;
+    return unwrap<FinanceRecord>(response);
   },
 
   async delete(id: string): Promise<void> {
@@ -46,11 +50,16 @@ export const financeService = {
   },
 
   async bulkDelete(ids: string[]): Promise<void> {
-    await api.post('/finance/bulk/delete', { ids });
+    await api.delete('/finance/bulk', { data: { ids } });
   },
 
   async bulkUpdate(ids: string[], updates: Partial<FinanceRecord>): Promise<void> {
-    await api.post('/finance/bulk/update', { ids, updates });
+    if (updates.status) {
+      await api.put('/finance/bulk/status', { ids, status: updates.status });
+      return;
+    }
+
+    await Promise.all(ids.map((id) => api.put(`/finance/${id}`, updates)));
   },
 
   async getStats(startDate?: string, endDate?: string): Promise<{
@@ -66,23 +75,23 @@ export const financeService = {
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     const response = await api.get(`/finance/stats?${params.toString()}`);
-    return response.data.data;
+    return unwrap(response);
   },
 
   async getGoals(): Promise<SellerGoal[]> {
-    const response = await api.get('/finance/goals');
-    return response.data.data;
+    const response = await api.get('/finance/goals/list');
+    return unwrap<SellerGoal[]>(response);
   },
 
   async updateGoal(id: string, updates: Partial<SellerGoal>): Promise<SellerGoal> {
     const response = await api.put(`/finance/goals/${id}`, updates);
-    return response.data.data;
+    return unwrap<SellerGoal>(response);
   },
 
   async getReport(type: 'monthly' | 'quarterly' | 'yearly', year: number, month?: number): Promise<Blob> {
     const params = new URLSearchParams({ type, year: String(year) });
     if (month) params.append('month', String(month));
-    const response = await api.get(`/finance/report?${params.toString()}`, {
+    const response = await api.get(`/finance/export/csv?${params.toString()}`, {
       responseType: 'blob',
     });
     return response.data;
@@ -93,7 +102,7 @@ export const financeService = {
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) params.append(key, String(value));
     });
-    const response = await api.get(`/finance/export?${params.toString()}`, {
+    const response = await api.get(`/finance/export/csv?${params.toString()}`, {
       responseType: 'blob',
     });
     return response.data;

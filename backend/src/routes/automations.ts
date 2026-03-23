@@ -14,7 +14,7 @@ router.get('/', async (req, res, next) => {
     
     const query: any = { organizationId: req.organizationId };
     
-    if (active !== undefined) query.active = active === 'true';
+    if (active !== undefined) query.isActive = active === 'true';
     
     if (search) {
       query.$or = [
@@ -79,8 +79,14 @@ router.get('/:id', async (req, res, next) => {
 // Create automation
 router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
   try {
+    const payload = { ...req.body } as any;
+    if (payload.active !== undefined) {
+      payload.isActive = payload.active;
+      delete payload.active;
+    }
+
     const automation = new Automation({
-      ...req.body,
+      ...payload,
       organizationId: req.organizationId,
       createdBy: req.user!._id,
     });
@@ -96,9 +102,15 @@ router.post('/', authorize('admin', 'manager'), async (req, res, next) => {
 // Update automation
 router.put('/:id', authorize('admin', 'manager'), async (req, res, next) => {
   try {
+    const payload = { ...req.body } as any;
+    if (payload.active !== undefined) {
+      payload.isActive = payload.active;
+      delete payload.active;
+    }
+
     const automation = await Automation.findOneAndUpdate(
       { _id: req.params.id, organizationId: req.organizationId },
-      { ...req.body, updatedAt: new Date() },
+      { ...payload, updatedAt: new Date() },
       { new: true }
     );
     
@@ -234,7 +246,7 @@ router.post('/:id/duplicate', authorize('admin', 'manager'), async (req, res, ne
       ...original.toObject(),
       _id: undefined,
       name: `${original.name} (cópia)`,
-      active: false,
+      isActive: false,
       executionCount: 0,
       successCount: 0,
       failCount: 0,

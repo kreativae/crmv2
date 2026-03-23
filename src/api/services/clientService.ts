@@ -12,6 +12,10 @@ export interface ClientFilters {
   tags?: string[];
 }
 
+const unwrap = <T>(response: any): T => {
+  return (response?.data?.data ?? response?.data) as T;
+};
+
 // Strip frontend-only fields that don't exist in the backend model
 function toApiPayload(client: Partial<Client>): Record<string, unknown> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -53,31 +57,39 @@ export const clientService = {
   },
 
   async bulkDelete(ids: string[]): Promise<void> {
-    await api.post('/clients/bulk/delete', { ids });
+    await api.delete('/clients/bulk', { data: { ids } });
   },
 
   async bulkUpdate(ids: string[], updates: Partial<Client>): Promise<void> {
-    await api.post('/clients/bulk/update', { ids, updates });
+    await Promise.all(ids.map((id) => api.put(`/clients/${id}`, toApiPayload(updates))));
   },
 
   async addNote(id: string, content: string): Promise<Client> {
-    const response = await api.post(`/clients/${id}/notes`, { content });
-    return response.data.data;
+    const client = await this.getById(id);
+    const existing = (client as any).notes || '';
+    const notes = existing ? `${existing}\n- ${content}` : `- ${content}`;
+    const response = await api.put(`/clients/${id}`, { notes });
+    return unwrap<Client>(response);
   },
 
   async deleteNote(id: string, noteId: string): Promise<Client> {
-    const response = await api.delete(`/clients/${id}/notes/${noteId}`);
-    return response.data.data;
+    void noteId;
+    const response = await api.put(`/clients/${id}`, { notes: '' });
+    return unwrap<Client>(response);
   },
 
   async addTag(id: string, tag: string): Promise<Client> {
-    const response = await api.post(`/clients/${id}/tags`, { tag });
-    return response.data.data;
+    const client = await this.getById(id);
+    const tags = Array.from(new Set([...(client.tags || []), tag]));
+    const response = await api.put(`/clients/${id}`, { tags });
+    return unwrap<Client>(response);
   },
 
   async removeTag(id: string, tag: string): Promise<Client> {
-    const response = await api.delete(`/clients/${id}/tags/${encodeURIComponent(tag)}`);
-    return response.data.data;
+    const client = await this.getById(id);
+    const tags = (client.tags || []).filter((t) => t !== tag);
+    const response = await api.put(`/clients/${id}`, { tags });
+    return unwrap<Client>(response);
   },
 
   async getStats(): Promise<{

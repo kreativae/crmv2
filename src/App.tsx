@@ -43,6 +43,33 @@ export function App() {
 
     const bootstrapAuth = async () => {
       try {
+        const url = new URL(window.location.href);
+        const oauthStatus = url.searchParams.get('auth');
+        const oauthToken = url.searchParams.get('accessToken');
+        const oauthMessage = url.searchParams.get('message');
+
+        if (oauthStatus === 'success' && oauthToken) {
+          setAccessToken(oauthToken);
+          const me = await authService.getMe();
+          if (me?.user) {
+            login(me.user.email, '', me.user);
+            localStorage.setItem('nexcrm:oauth:lastProvider', url.searchParams.get('provider') || '');
+            window.history.replaceState({}, '', url.pathname);
+            const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
+            if (savedPage && savedPage !== 'login') {
+              setCurrentPage(savedPage);
+            }
+            return;
+          }
+        }
+
+        if (oauthStatus === 'error') {
+          if (oauthMessage) {
+            localStorage.setItem('nexcrm:oauth:error', oauthMessage);
+          }
+          window.history.replaceState({}, '', url.pathname);
+        }
+
         const persisted = getPersistedSession();
         if (persisted?.token && persisted?.user) {
           setAccessToken(persisted.token);
