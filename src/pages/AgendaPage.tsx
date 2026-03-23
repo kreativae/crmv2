@@ -376,7 +376,7 @@ export function AgendaPage() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, date: string, hour?: number) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, date: string, hour?: number) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverSlot(null);
@@ -418,14 +418,27 @@ export function AgendaPage() {
       newEnd = eventToMove.endTime;
     }
     
-    // Atualiza o evento
-    updateCalendarEvent(eventToMove._id, { 
-      date, 
-      startTime: newStart, 
-      endTime: newEnd 
-    });
-    
-    addToast(`"${eventToMove.title}" reagendado para ${formatDateBR(date)} às ${newStart}`, 'success');
+    // Salva no backend primeiro
+    try {
+      // Garante que todos os campos obrigatórios estejam presentes
+      const updated = await calendarService.update(eventToMove._id, {
+        ...eventToMove,
+        date,
+        startTime: newStart,
+        endTime: newEnd,
+      });
+      // Atualiza o estado local com a resposta do servidor
+      updateCalendarEvent(eventToMove._id, {
+        ...eventToMove,
+        date,
+        startTime: newStart,
+        endTime: newEnd,
+      });
+      addToast(`"${eventToMove.title}" reagendado para ${formatDateBR(date)} às ${newStart}`, 'success');
+    } catch (err) {
+      logger.error('Erro ao reagendar evento:', err);
+      addToast('Erro ao salvar alterações. Tente novamente.', 'error');
+    }
   };
   
   // Formata data para exibição em PT-BR
