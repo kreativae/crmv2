@@ -24,8 +24,9 @@ export function App() {
   const prevPageRef = useRef(currentPage);
   const didBootstrapAuthRef = useRef(false);
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
+  const [authBootstrapMessage, setAuthBootstrapMessage] = useState('Carregando sessao...');
 
-  const refreshAndGetMeWithTimeout = async (timeoutMs = 10000) => {
+  const refreshAndGetMeWithTimeout = async (timeoutMs = 45000) => {
     return Promise.race([
       (async () => {
         await authService.refreshToken();
@@ -96,19 +97,40 @@ export function App() {
           return;
         }
 
-        const me = await refreshAndGetMeWithTimeout();
-        if (me?.user) {
-          login(me.user.email, '', me.user);
-          const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
-          if (savedPage && savedPage !== 'login') {
-            setCurrentPage(savedPage);
+        // Retry up to 3 times to handle Render free-tier cold start (can take 30–60s)
+        let lastErr: unknown;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) {
+              setAuthBootstrapMessage(`Servidor iniciando, aguarde... (tentativa ${attempt}/3)`);
+              await new Promise((res) => setTimeout(res, 3000));
+            }
+            const me = await refreshAndGetMeWithTimeout(45000);
+            if (me?.user) {
+              login(me.user.email, '', me.user);
+              const savedPage = localStorage.getItem('nexcrm:lastPage') as AppPage | null;
+              if (savedPage && savedPage !== 'login') {
+                setCurrentPage(savedPage);
+              }
+              return;
+            }
+            break;
+          } catch (err) {
+            lastErr = err;
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            // On explicit 401 there is no point retrying
+            if (status === 401) break;
           }
-          return;
         }
 
-        logout();
+        const status = (lastErr as { response?: { status?: number } })?.response?.status;
+        if (status !== 401) {
+          // Network/timeout — don't force logout; just fall to login screen
+        } else {
+          logout();
+        }
       } catch {
-        logout();
+        // Unexpected error — show login
       } finally {
         setAuthBootstrapping(false);
       }
@@ -200,7 +222,7 @@ export function App() {
   }, []);
 
   if (authBootstrapping) {
-    return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">Carregando sessao...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">{authBootstrapMessage}</div>;
   }
 
   if (!isAuthenticated || currentPage === 'login') {
