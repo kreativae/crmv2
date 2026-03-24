@@ -885,9 +885,13 @@ export function ClientsPage() {
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
-                      type="number"
-                      value={formData.annualSpend}
-                      onChange={e => setFormData(prev => ({ ...prev, annualSpend: Number(e.target.value) }))}
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.annualSpend === 0 ? '' : formData.annualSpend}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                        setFormData(prev => ({ ...prev, annualSpend: raw === '' ? 0 : Number(raw) }));
+                      }}
                       className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                       placeholder="0"
                     />
