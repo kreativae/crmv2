@@ -133,12 +133,58 @@ router.get('/:id', async (req, res, next) => {
 // Create transaction
 router.post('/', async (req, res, next) => {
   try {
-    const transaction = new Transaction({
-      ...req.body,
+    // Validate required fields
+    if (!req.body.description || !req.body.type || !req.body.category || req.body.value === undefined || !req.body.date) {
+      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    // Validate value
+    const value = parseFloat(req.body.value);
+    if (isNaN(value) || value < 0) {
+      return res.status(400).json({ error: 'Valor inválido' });
+    }
+
+    // Validate date
+    const date = new Date(req.body.date);
+    if (isNaN(date.getTime())) {
+      return res.status(400).json({ error: 'Data inválida' });
+    }
+    
+    // Map frontend fields to backend fields
+    const transactionData: any = {
+      description: req.body.description,
+      type: req.body.type,
+      category: req.body.category,
+      value: value,
+      status: req.body.status,
+      date: date,
       organizationId: req.organizationId,
       createdBy: req.user!._id,
-    });
+    };
+
+    // Handle optional fields
+    if (req.body.dueDate) {
+      transactionData.dueDate = new Date(req.body.dueDate);
+    }
+
+    if (req.body.notes) {
+      transactionData.notes = req.body.notes;
+    }
+
+    // Handle optional references - only if they have valid values
+    if (req.body.client && typeof req.body.client === 'string' && req.body.client.trim() && req.body.client !== 'undefined') {
+      transactionData.clientId = req.body.client;
+    }
     
+    if (req.body.salesperson && typeof req.body.salesperson === 'string' && req.body.salesperson.trim() && req.body.salesperson !== 'undefined') {
+      transactionData.sellerId = req.body.salesperson;
+    }
+
+    if (req.body.pipeline && typeof req.body.pipeline === 'string' && req.body.pipeline.trim() && req.body.pipeline !== 'undefined') {
+      transactionData.pipelineId = req.body.pipeline;
+    }
+
+    const transaction = new Transaction(transactionData);
     await transaction.save();
     
     res.status(201).json(transaction);
@@ -150,9 +196,65 @@ router.post('/', async (req, res, next) => {
 // Update transaction
 router.put('/:id', async (req, res, next) => {
   try {
+    // Map frontend fields to backend fields
+    const updateData: any = {
+      description: req.body.description,
+      type: req.body.type,
+      category: req.body.category,
+      value: parseFloat(req.body.value),
+      status: req.body.status,
+      date: new Date(req.body.date),
+      notes: req.body.notes,
+      updatedAt: new Date(),
+    };
+
+    // Handle optional date
+    if (req.body.dueDate) {
+      updateData.dueDate = new Date(req.body.dueDate);
+    } else {
+      updateData.dueDate = null;
+    }
+
+    // Handle optional references - convert valid ObjectIds
+    if (req.body.client !== undefined) {
+      if (req.body.client && req.body.client.trim()) {
+        try {
+          updateData.clientId = req.body.client;
+        } catch (e) {
+          updateData.clientId = null;
+        }
+      } else {
+        updateData.clientId = null;
+      }
+    }
+    
+    if (req.body.salesperson !== undefined) {
+      if (req.body.salesperson && req.body.salesperson.trim()) {
+        try {
+          updateData.sellerId = req.body.salesperson;
+        } catch (e) {
+          updateData.sellerId = null;
+        }
+      } else {
+        updateData.sellerId = null;
+      }
+    }
+
+    if (req.body.pipeline !== undefined) {
+      if (req.body.pipeline && req.body.pipeline.trim()) {
+        try {
+          updateData.pipelineId = req.body.pipeline;
+        } catch (e) {
+          updateData.pipelineId = null;
+        }
+      } else {
+        updateData.pipelineId = null;
+      }
+    }
+
     const transaction = await Transaction.findOneAndUpdate(
       { _id: req.params.id, organizationId: req.organizationId },
-      { ...req.body, updatedAt: new Date() },
+      updateData,
       { new: true }
     );
     
