@@ -633,7 +633,7 @@ export function FinancePage() {
                                   <Copy className="h-3.5 w-3.5" /> Duplicar
                                 </button>
                                 {record.status === 'pending' && (
-                                  <button onClick={() => { updateFinanceRecord(record._id, { status: 'paid' }); setActiveQuickAction(null); }}
+                                  <button onClick={async () => { try { await financeService.update(record._id, { status: 'paid' }); } catch {} updateFinanceRecord(record._id, { status: 'paid' }); setActiveQuickAction(null); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50">
                                     <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como pago
                                   </button>
@@ -861,7 +861,7 @@ export function FinancePage() {
                     {(Object.entries(STATUS_CONFIG) as [TransactionStatus, typeof STATUS_CONFIG[TransactionStatus]][]).map(([key, conf]) => {
                       const Icon = conf.icon;
                       return (
-                        <button key={key} onClick={() => { updateFinanceRecord(viewingRecord._id, { status: key }); setViewingRecord({ ...viewingRecord, status: key }); }}
+                        <button key={key} onClick={async () => { try { await financeService.update(viewingRecord._id, { status: key }); } catch {} updateFinanceRecord(viewingRecord._id, { status: key }); setViewingRecord({ ...viewingRecord, status: key }); }}
                           className={cn('flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all',
                             viewingRecord.status === key ? `${conf.bg} ${conf.color} ring-2 ring-offset-1 ring-current/20` : 'border-gray-200 text-gray-500 hover:bg-gray-50')}>
                           <Icon className="h-3.5 w-3.5" /> {conf.label}
