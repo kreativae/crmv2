@@ -92,7 +92,7 @@ export function FinancePage() {
   // Form state
   const emptyForm = {
     description: '', type: 'revenue' as TransactionType, category: 'services' as TransactionCategory,
-    value: '', client: '', salesperson: SELLERS[0], status: 'pending' as TransactionStatus,
+    value: '', client: '', salesperson: SELLERS[0] ?? '', status: 'pending' as TransactionStatus,
     date: new Date().toISOString().split('T')[0], dueDate: '', notes: '',
   };
   const [form, setForm] = useState(emptyForm);
@@ -103,7 +103,7 @@ export function FinancePage() {
     let list = [...financeRecords];
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(r => r.description.toLowerCase().includes(q) || (r.client || '').toLowerCase().includes(q) || r.salesperson.toLowerCase().includes(q));
+      list = list.filter(r => r.description.toLowerCase().includes(q) || (r.client || '').toLowerCase().includes(q) || (r.salesperson || '').toLowerCase().includes(q));
     }
     if (typeFilter !== 'all') list = list.filter(r => r.type === typeFilter);
     if (statusFilter !== 'all') list = list.filter(r => r.status === statusFilter);
@@ -585,9 +585,9 @@ export function FinancePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-violet-100 text-[9px] font-bold text-brand-700">
-                            {record.salesperson.split(' ').map(n => n[0]).join('')}
+                            {(record.salesperson || '').split(' ').filter(Boolean).map(n => n[0]).join('') || '—'}
                           </div>
-                          <span className="text-xs text-gray-600">{record.salesperson}</span>
+                          <span className="text-xs text-gray-600">{record.salesperson || '—'}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">

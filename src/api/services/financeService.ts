@@ -18,6 +18,24 @@ const unwrap = <T>(response: any): T => {
   return (response?.data?.data ?? response?.data) as T;
 };
 
+// The backend Transaction model uses sellerId/clientId instead of salesperson/client.
+// Normalize to the FinanceRecord shape the frontend expects.
+const normalizeRecord = (raw: any): FinanceRecord => ({
+  _id: raw._id ?? raw.id ?? '',
+  description: raw.description ?? '',
+  type: raw.type,
+  category: raw.category,
+  value: raw.value ?? 0,
+  status: raw.status ?? 'pending',
+  date: raw.date ? (typeof raw.date === 'string' ? raw.date.split('T')[0] : new Date(raw.date).toISOString().split('T')[0]) : '',
+  dueDate: raw.dueDate ? (typeof raw.dueDate === 'string' ? raw.dueDate.split('T')[0] : new Date(raw.dueDate).toISOString().split('T')[0]) : undefined,
+  client: raw.client ?? raw.clientId ?? undefined,
+  salesperson: raw.salesperson ?? raw.sellerId ?? '',
+  pipeline: raw.pipeline ?? raw.pipelineId ?? '',
+  notes: raw.notes,
+  invoiceNumber: raw.invoiceNumber,
+});
+
 export const financeService = {
   async getAll(filters: FinanceFilters = {}): Promise<{ data: FinanceRecord[]; pagination: { total: number; pages: number } }> {
     const params = new URLSearchParams();
@@ -27,22 +45,26 @@ export const financeService = {
       }
     });
     const response = await api.get(`/finance?${params.toString()}`);
-    return response.data;
+    const body = response.data;
+    return {
+      data: (body?.data ?? body ?? []).map(normalizeRecord),
+      pagination: body?.pagination ?? { total: 0, pages: 1 },
+    };
   },
 
   async getById(id: string): Promise<FinanceRecord> {
     const response = await api.get(`/finance/${id}`);
-    return unwrap<FinanceRecord>(response);
+    return normalizeRecord(unwrap(response));
   },
 
   async create(record: Partial<FinanceRecord>): Promise<FinanceRecord> {
     const response = await api.post('/finance', record);
-    return unwrap<FinanceRecord>(response);
+    return normalizeRecord(unwrap(response));
   },
 
   async update(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord> {
     const response = await api.put(`/finance/${id}`, updates);
-    return unwrap<FinanceRecord>(response);
+    return normalizeRecord(unwrap(response));
   },
 
   async delete(id: string): Promise<void> {
